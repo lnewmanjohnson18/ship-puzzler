@@ -17,6 +17,8 @@ public class ManagerScript : MonoBehaviour
     // COMMUNICATE THE NUMBER OF SHIPS TO THE SCRIPTS HERE
     public int numShips = 2;
     private Dictionary<int, GameObject> shipDict = new Dictionary<int, GameObject>();
+    // NOTE: this tracks ships by NAME as it appears in the entity list i.e. ship1, ship2, and does not match their ship id
+    //          shipID = shipName + 1 (currently)
 
     private GameObject grid;
     private Tilemap walls;
@@ -146,8 +148,8 @@ public class ManagerScript : MonoBehaviour
 
         // deselect all other ships
         foreach (KeyValuePair<int, GameObject> kvp in this.shipDict){
-            if (kvp.Key != shipID){
-                
+            if (kvp.Key + 1 != shipID){
+                kvp.Value.GetComponent<velocity_dragging>().deselect();
             }
         }
 

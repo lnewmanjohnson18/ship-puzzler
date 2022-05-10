@@ -9,6 +9,10 @@ using TMPro;
 
 public class velocity_dragging : MonoBehaviour
 {
+    // Debugging Variables
+    public float minVelocityX = 0;
+    public float minVelocityY = 0;
+
     public int shipID;
     public int notSet;
     public Rigidbody2D rb;
@@ -18,6 +22,9 @@ public class velocity_dragging : MonoBehaviour
     public GridSquare[] path = new GridSquare[484];
     public GridSquare[] permPath = new GridSquare[484];
     private GameObject[] pathSpriteList = new GameObject[484];
+    private Stack<PathState> pathHistory = new Stack<PathState>();
+
+
     public int lenPath = 0;
     public int lenPermPath = 0;
     public int xCurrCoord;
@@ -29,6 +36,8 @@ public class velocity_dragging : MonoBehaviour
     private int[,] gameStateGrid;
     private Transform locationTransform;
     public GameObject gameManager;
+
+    private Boolean qPressed = false;
 
     private string curr_bearing = "NONE";
     // This variable is a state describing whether the ship is currently considering a move along the X or Y-Axis
@@ -86,6 +95,14 @@ public class velocity_dragging : MonoBehaviour
         this.yCurrCoord = (int)Math.Floor(this.gameObject.transform.position.y);
 
         //Debugging Log
+        if (rb.velocity.x < this.minVelocityX){
+            this.minVelocityX = rb.velocity.x;
+        }
+
+                //Debugging Log
+        if (rb.velocity.y < this.minVelocityY){
+            this.minVelocityY = rb.velocity.y;
+        }
 
         // ===============================================================================================================
         // See if the path has been reset by user
@@ -94,6 +111,20 @@ public class velocity_dragging : MonoBehaviour
         if (Input.GetKeyDown("space")){
             resetShipPath();
         }
+
+
+        // if q has been hit and is not being held 
+        if (Input.GetKeyDown("q") && this.qPressed == false && this.isSelected == true){
+            Debug.Log("reset button called on a frame");
+            resetLeg();
+            this.qPressed = true;
+        }   
+
+        if (!Input.GetKeyDown("q")){
+            this.qPressed = false;
+        }
+
+
 
 
         // ===============================================================================================================
@@ -146,7 +177,8 @@ public class velocity_dragging : MonoBehaviour
                     // Check if the ship is not at the center X value of the grid square the cursor is in
                     // Add necessary velocity if not
                     if (Math.Abs(this.gameObject.transform.position.x - xValDesired) > .05) {
-                        rb.velocity = new Vector3(-10*(this.gameObject.transform.position.x - xValDesired), 0, 0);
+
+                        rb.velocity = new Vector3(Math.Min(10*Math.Abs(this.gameObject.transform.position.x - xValDesired), (float)50)*Math.Sign(xValDesired - this.gameObject.transform.position.x), 0, 0);
                     }
 
                     // If the ship is already in the correct position and that position is the home square for the leg  
@@ -166,7 +198,7 @@ public class velocity_dragging : MonoBehaviour
                     // Check if the cursor is indicating a grid square the ship is not at the center Y value of
                     // Add necessary velocity if not
                     if ((float)Math.Floor(this.gameObject.transform.position.y) != yValDesired) {
-                        rb.velocity = new Vector3(0, -10*(this.gameObject.transform.position.y - yValDesired), 0);
+                        rb.velocity = new Vector3(0, Math.Min(10*Math.Abs(this.gameObject.transform.position.y - yValDesired), (float)50)*Math.Sign(yValDesired - this.gameObject.transform.position.y), 0);
                     }
 
                     // If the ship is already in the correct position AND that position is the home square for the leg  
@@ -185,6 +217,10 @@ public class velocity_dragging : MonoBehaviour
                     rb.velocity = new Vector3(0, 0, 0);
 
                 }
+
+                // // Before we go to the next frame clip the velocity down so the ship doesn't fly out of the play area or anything like that
+                // rb.velocity.x = new Vector3 (Math.Min(rb.velocity.x, 75.0), 0, 0)
+                // rb.velocity.y = new Vector3 (0, Math.Min(rb.velocity.y, 75.0), 0)
 
         }
 
@@ -241,7 +277,9 @@ public class velocity_dragging : MonoBehaviour
         GridSquare startOfLeg = this.currPermPosition;
         GridSquare endOfLeg = this.path[this.lenPath];
             
-
+        // before we leave add the position and length of the place we are leaving as a PathState to the history stack so we could jump back if need be
+        pathHistory.Push(new PathState(this.currPermPosition, this.lenPermPath));
+        Debug.Log("pathHistory len: " + pathHistory.Count.ToString());
 
         // if this is the first completed leg add the "0th" sprite to mark where the ship started
         if (this.lenPermPath == 0){
@@ -298,6 +336,8 @@ public class velocity_dragging : MonoBehaviour
         // mark the newly occupied square as occupied by the ship
         this.gameStateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = shipID;
 
+
+
         // clean up the ship location
         superficialSnapToPermPath();
 
@@ -306,6 +346,7 @@ public class velocity_dragging : MonoBehaviour
 
 
     // moves the ship to the end of its last viable leg and resets relevant information
+    // NOTE: DOES NOT INTERACT WITH gameStateGrid[] 
     private void snapToPermPath(){
 
         // Reset position and position bookkeeping
@@ -401,6 +442,7 @@ public class velocity_dragging : MonoBehaviour
         this.shipID = ID;
     }
 
+    // resets all the ships to their positions at the start of the round
     private void resetShipPath(){
 
         // Delete previously placed path sprites
@@ -421,6 +463,41 @@ public class velocity_dragging : MonoBehaviour
         this.lenPermPath = 0;
 
         // Reset ship location
+        snapToPermPath();
+
+    }
+
+    // Walk the ship back one length 
+    private void resetLeg(){
+
+        PathState returnState = pathHistory.Pop();
+        GridSquare returnLocation = returnState.location;
+        int returnStepNumber = returnState.lenPermPath;
+
+        // If we have reset all the way to the starting position
+        if (pathHistory.Count == 0){
+            pathHistory.Push(new PathState(this.roundStartSquare, 0));
+        }
+
+        // Delete previously placed path sprites
+        for (int i = returnStepNumber; i <= this.lenPermPath; i++){
+            Destroy(this.pathSpriteList[i]);
+            this.pathSpriteList[i] = null;
+        }
+        
+        // update the gamestateGrid
+        this.gameStateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = 0;
+        this.gameStateGrid[returnLocation.x + 10, returnLocation.y + 10] = shipID;
+
+
+        // Reset lenPermPath
+        this.lenPermPath = returnStepNumber;
+
+        // tell the script that the ship is back at the previous leg
+        this.currPermPosition = this.permPath[lenPermPath];
+
+
+        // tell the renderers to move the sprite back at the previous leg
         snapToPermPath();
 
     }
@@ -451,7 +528,8 @@ public class velocity_dragging : MonoBehaviour
                 Vector3 mousePos;
                 mousePos = Input.mousePosition;
                 mousePos = Camera.main.ScreenToWorldPoint(mousePos);
-                rb.constraints = RigidbodyConstraints2D.None;
+                // tells the physics engine to just freeze rotation; let X and Y now change
+                rb.constraints = RigidbodyConstraints2D.FreezeRotation;
                 isBeingHeld = true;
 
                 markSelected();
@@ -474,6 +552,7 @@ public class velocity_dragging : MonoBehaviour
 
 }
 
+// a way to refer to a grid element
 public class GridSquare
 {
     public Vector3 location;
@@ -481,6 +560,7 @@ public class GridSquare
     public int y;
     public bool isOccupied = false;
 
+    // TODO make so we only use either the Vector3 or x,y. (preferably the Vector3)
     public GridSquare(Vector3 location, int x, int y, bool isOccupied){
         this.location = new Vector3(x, y, 0);
         this.x = x;
@@ -490,11 +570,25 @@ public class GridSquare
 
 }
 
+// A class to be used as a shorthand to refer the full gamestate of a single ship
+// i.e. it contains all necessary information to recreate the game actions of that ship
+public class PathState
+{
+    public GridSquare location;
+    public int lenPermPath;
+    // public GridSquare[] permPath;
+
+    public PathState(GridSquare location, int lenPermPath){
+        this.location = location;
+        this.lenPermPath = lenPermPath; 
+    }
+}
+
+
+        // TODO: HAVE SHIPS BE GENERATED BY MANAGER SCRIPT
 
         // TODO: TIE THESE INTO THE MANAGERSCRIPT TO CHECK FOR SOLUTION COMPLETION
 
         // TODO: CHANGE SCENE WHEN SOLUTIONS ARE SUBMITTED
-
-        // TODO: MAKE A PATH RESET BUTTON
 
         // TODO: REMOVE isOccupied FROM THE GRIDSQUARE CLASS
