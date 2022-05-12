@@ -100,25 +100,7 @@ public class ManagerScript : MonoBehaviour
 
         // walls.DeleteCells(new Vector3Int(0, 0, 0), new Vector3Int(1, 1, 1));
 
-        // Iterate through the starting game state and add all walls to the grid
-        for (int i = -10; i < 10; i++){
-            for (int j = -10; j < 10; j++){
-                // Debug.Log("Checking");
-                // Debug.Log(new Vector3Int(i, j, 0));
-
-                // Try to get the wall at (i, j). y = 0 always cause it's 2D
-                TileBase wall = walls.GetTile(new Vector3Int(i, j, 0));
-                if (wall != null){
-                    // Debug.Log("Marking down");
-                    gameStateGrid[i+10, j+10] = 1;
-
-                    // Center of the cell transform
-                    Vector3 worldPos = walls.GetCellCenterWorld(new Vector3Int(i, j, 0));
-                }
-            
-            }
-
-        }
+        resetGameGrid();
 
         // Once the gameStateGrid is in place pick the finishPoint
         this.finishingShipID = this.randomGenerator.Next(1,numShips);
@@ -241,5 +223,34 @@ public class ManagerScript : MonoBehaviour
         // Pick a new ship and finish spot
         this.finishingShipID = this.randomGenerator.Next(1,numShips);
         this.finishPoint = generateFinishPoint(this.finishingShipID);
+
+        // Reset the game grid
+        resetGameGrid();
+    }
+
+    private void resetGameGrid(){
+
+        
+        // TODO: DONT DO THIS
+        this.gameStateGrid = new int[20, 20];   
+        // Iterate through the starting game state and add all walls to the grid
+        for (int i = -10; i < 10; i++){
+            for (int j = -10; j < 10; j++){
+                // Debug.Log("Checking");
+                // Debug.Log(new Vector3Int(i, j, 0));
+
+                // Try to get the wall at (i, j). y = 0 always cause it's 2D
+                TileBase wall = this.walls.GetTile(new Vector3Int(i, j, 0));
+                if (wall != null){
+                    // Debug.Log("Marking down");
+                    this.gameStateGrid[i+10, j+10] = 1;
+
+                    // Center of the cell transform
+                    Vector3 worldPos = this.walls.GetCellCenterWorld(new Vector3Int(i, j, 0));
+                }
+            
+            }
+
+        }
     }
 }

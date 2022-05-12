@@ -178,7 +178,7 @@ public class velocity_dragging : MonoBehaviour
                     // Add necessary velocity if not
                     if (Math.Abs(this.gameObject.transform.position.x - xValDesired) > .05) {
 
-                        rb.velocity = new Vector3(Math.Min(10*Math.Abs(this.gameObject.transform.position.x - xValDesired), (float)50)*Math.Sign(xValDesired - this.gameObject.transform.position.x), 0, 0);
+                        rb.velocity = new Vector3(Math.Min(10*Math.Abs(this.gameObject.transform.position.x - xValDesired), (float)35)*Math.Sign(xValDesired - this.gameObject.transform.position.x), 0, 0);
                     }
 
                     // If the ship is already in the correct position, that position is the home square for the leg, and the ship has left and is coming back  
@@ -201,7 +201,7 @@ public class velocity_dragging : MonoBehaviour
                     // Check if the cursor is indicating a grid square the ship is not at the center Y value of
                     // Add necessary velocity if not
                     if (Math.Abs(this.gameObject.transform.position.y - yValDesired) > .05) {
-                        rb.velocity = new Vector3(0, Math.Min(10*Math.Abs(this.gameObject.transform.position.y - yValDesired), (float)50)*Math.Sign(yValDesired - this.gameObject.transform.position.y), 0);
+                        rb.velocity = new Vector3(0, Math.Min(10*Math.Abs(this.gameObject.transform.position.y - yValDesired), (float)35)*Math.Sign(yValDesired - this.gameObject.transform.position.y), 0);
                     }
 
                     // If the ship is already in the correct position, that position is the home square for the leg, and the ship has left and is coming back  
@@ -454,6 +454,9 @@ public class velocity_dragging : MonoBehaviour
         }
         this.pathSpriteList = new GameObject[484];
 
+        // mark the old square square as empty
+        this.gameStateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = 0;
+
         // Reset path, permPath, and lenPath
         this.permPath = new GridSquare[484];
         this.currPermPosition = this.roundStartSquare;
@@ -586,3 +589,6 @@ public class PathState
         this.lenPermPath = lenPermPath; 
     }
 }
+
+
+// TODO: FIX OUT OF BOUNDS ON X AXIS
