@@ -457,6 +457,9 @@ public class velocity_dragging : MonoBehaviour
         // mark the old square square as empty
         this.gameStateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = 0;
 
+        // mark the new square as occupied
+        this.gameStateGrid[this.roundStartSquare.x + 10, this.roundStartSquare.y + 10] = this.shipID;
+
         // Reset path, permPath, and lenPath
         this.permPath = new GridSquare[484];
         this.currPermPosition = this.roundStartSquare;
@@ -592,3 +595,5 @@ public class PathState
 
 
 // TODO: FIX OUT OF BOUNDS ON X AXIS
+
+//TODO: AFTER A LEG IS RESET THE RESET HOME SQUARE SPRITE DISAPPEARS
