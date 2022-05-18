@@ -9,6 +9,7 @@ public class ManagerScript : MonoBehaviour
 {
 
     public int totalSolutionLength;
+    public int totalSolutionNumMoves;
 
     // This is a simple gameStateGrid that can be conveniently referenced
     // It marks all walls as 1s, ships as 2s and empty spaces as 0s
@@ -24,7 +25,6 @@ public class ManagerScript : MonoBehaviour
     public Sprite finishPointTexture4;
     private Sprite[] finishPointTextureList = new Sprite[4];
 
-
     // COMMUNICATE THE NUMBER OF SHIPS TO THE SCRIPTS HERE
     private int numShips = 4;
     private Dictionary<int, GameObject> shipDict = new Dictionary<int, GameObject>();
@@ -32,13 +32,27 @@ public class ManagerScript : MonoBehaviour
     //          shipID = shipName + 1 (currently)
 
     private GameObject grid;
+    private GameObject UI;
     private Tilemap walls;
     private velocity_dragging shipScriptReference;
     // NOTE: THIS REFERS TO A RANDOM SCRIPT AND IS JUST FOR PULLING UTILITIES. DO NOT USE TO CONTROL INDIVIDUAL SHIPS
+    private GameObject nextRoundButton;
 
 
     // Called when the script instance is being loaded
     void Awake(){
+
+        // get reference to the button and then make it inactive since this is the most convenient way to reference an inactive object
+        this.nextRoundButton = GameObject.Find("NextRoundButtonObject");
+        this.nextRoundButton.SetActive(false);
+
+        // get reference to the UI objects
+        this.UI = GameObject.Find("UI");
+
+
+        this.totalSolutionLength = 0;
+        this.totalSolutionNumMoves = 0;
+
         // TODO: FILL THIS IN AUTOMATICALLY
         this.finishPointTextureList[0] = this.finishPointTexture1;
         this.finishPointTextureList[1] = this.finishPointTexture2;
@@ -113,6 +127,21 @@ public class ManagerScript : MonoBehaviour
         if (Input.GetKeyDown("space")){
             resetGameState();
         }
+
+        // update the UI text
+
+        queryPathStates();
+
+        foreach (Transform child in this.UI.transform.Find("Canvas")){
+            TMPro.TextMeshProUGUI textObj = child.GetComponent<TMPro.TextMeshProUGUI>();
+            if (child.gameObject.name == "NumMovesText"){
+                textObj.text = textObj.text.Split(":")[0] + ": " + this.totalSolutionNumMoves.ToString();   
+            }
+            if (child.gameObject.name == "LenPathText"){
+                textObj.text = textObj.text.Split(":")[0] + ": " + this.totalSolutionLength.ToString();   
+            }
+        }
+
     }
 
 
@@ -167,51 +196,43 @@ public class ManagerScript : MonoBehaviour
         newSpriteRenderer.sprite = this.finishPointTextureList[(finishingShipID - 1)];
         // NOTE: MINUS 1 is because ship 1 is @ index 0 etc. etc.
         finishPointSprite.transform.localPosition = new Vector3(x+.5f, y+.5f, 0);
+        // make it so it appears on top of any other sprite
+        newSpriteRenderer.sortingOrder = numShips*20 + 10;
 
-        // // Add a canvas that sprite
-        // finishPointSprite.AddComponent<Canvas>();
+    }
 
-        // // Add text to canvas
-        // GameObject myText = new GameObject();
-        // myText.transform.parent = finishPointSprite.transform;
-        // myText.name = "finish";
+    public void checkSolution(int shipID, GridSquare endSquare){
+        // if it is the right ship and has come to a stop at the right location
+        if (((shipID - 1) == this.finishingShipID) && (this.finishPoint.isEqualTo(endSquare))){
 
-        // TMPro.TextMeshPro text = myText.AddComponent<TMPro.TextMeshPro>();
-        // // text.font = (Font)Resources.Load("MyFont");
-        // text.text = lenPath.ToString();
-        // text.alignment = TMPro.TextAlignmentOptions.Center;
 
-        // // Dynamically Determine Font Size and Text Box Attributes
-        // // 1 digit numbers
-        // if (Math.Floor(Math.Log10(lenPath) + 1) <= 1){
-        //     text.fontSize = 8;
+            // activate button
+            this.nextRoundButton.SetActive(true);
+            Button btn = this.nextRoundButton.GetComponentInChildren<Button>();
+            btn.onClick.AddListener(OnResetButtonClick);
+        }
 
-        //     // Text position
-        //     RectTransform rectTransform = text.GetComponent<RectTransform>();
-        //     rectTransform.localPosition = new Vector3(0, 0, 0);
-        //     rectTransform.sizeDelta = new Vector2(0, 0.8f);
+    }
+
+    private void OnResetButtonClick(){
+        this.nextRoundButton.SetActive(false);
+        resetRound();
+
+    }
+
+
+    public void resetRound(){
+        // lock board and prompt user for next puzzle
+        // TODO
         
-        // }
-        // // 2 digit numbers
-        // if (Math.Floor(Math.Log10(lenPath) + 1) == 2){
-        //     text.fontSize = 7;
-        //     // Text position
-        //     RectTransform rectTransform = text.GetComponent<RectTransform>();
-        //     rectTransform.localPosition = new Vector3(0, 0, 0);
-        //     rectTransform.sizeDelta = new Vector2(2, 0.8f);
-        
-        // }
-        // // 3 digit numbers
-        // if (Math.Floor(Math.Log10(lenPath) + 1) >= 3){
-        //     text.fontSize = 5;
-        //     // Text position            
-        //     RectTransform rectTransform = text.GetComponent<RectTransform>();
-        //     rectTransform.localPosition = new Vector3(0, 0, 0);
-        //     rectTransform.sizeDelta = new Vector2(2, 0.8f);
-        // } 
+        // reset board
+        resetGameState();
 
-        // // Add this sprite to the pathSpriteList so it can be managed later
-        // this.pathSpriteList[lenPath] = newPathSprite;
+        // reset all the ships paths
+        foreach (KeyValuePair<int, GameObject> kvp in this.shipDict){
+            kvp.Value.GetComponent<velocity_dragging>().setRoundStartPosition();
+        }
+        // maybe move the ships to new random locations?
     }
 
     private void resetGameState(){
@@ -230,7 +251,6 @@ public class ManagerScript : MonoBehaviour
 
     private void resetGameGrid(){
 
-        
         // TODO: DONT DO THIS
         this.gameStateGrid = new int[20, 20];   
         // Iterate through the starting game state and add all walls to the grid
@@ -248,9 +268,19 @@ public class ManagerScript : MonoBehaviour
                     // Center of the cell transform
                     Vector3 worldPos = this.walls.GetCellCenterWorld(new Vector3Int(i, j, 0));
                 }
-            
             }
-
         }
     }
+
+    public void queryPathStates(){        
+        this.totalSolutionLength = 0;
+        this.totalSolutionNumMoves = 0;
+        foreach (KeyValuePair<int, GameObject> kvp in this.shipDict){
+            PathState pathState = kvp.Value.GetComponent<velocity_dragging>().reportPathState();
+            this.totalSolutionLength += pathState.lenPermPath;
+            this.totalSolutionNumMoves += pathState.numMoves;
+        }
+
+    }
+
 }

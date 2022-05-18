@@ -68,6 +68,7 @@ public class velocity_dragging : MonoBehaviour
         this.path[0] = this.roundStartSquare;
         this.permPath[0] = this.roundStartSquare;
         this.currPermPosition = this.roundStartSquare;
+        this.pathHistory.Push(new PathState(this.roundStartSquare, 0, 0));
 
 
         // Bring in the objects that run the tilemap
@@ -87,7 +88,7 @@ public class velocity_dragging : MonoBehaviour
 
     void Update(){
         // ===============================================================================================================
-        // Update ship attributes for the frame
+        // Update and report ship attributes for the frame
         // ===============================================================================================================
 
         // Update location
@@ -99,10 +100,14 @@ public class velocity_dragging : MonoBehaviour
             this.minVelocityX = rb.velocity.x;
         }
 
-                //Debugging Log
+        //Debugging Log
         if (rb.velocity.y < this.minVelocityY){
             this.minVelocityY = rb.velocity.y;
         }
+
+        // send the most recent viable path state to the manager
+        // reportPathState(this.pathHistory.Peek());
+        // DEP: THIS IS CALLED DOWN FROM MANAGER NOW
 
         // ===============================================================================================================
         // See if the path has been reset by user
@@ -115,7 +120,7 @@ public class velocity_dragging : MonoBehaviour
 
         // if q has been hit and is not being held 
         if (Input.GetKeyDown("q") && this.qPressed == false && this.isSelected == true){
-            Debug.Log("reset button called on a frame");
+            // Debug.Log("reset button called on a frame");
             resetLeg();
             this.qPressed = true;
         }   
@@ -178,7 +183,7 @@ public class velocity_dragging : MonoBehaviour
                     // Add necessary velocity if not
                     if (Math.Abs(this.gameObject.transform.position.x - xValDesired) > .05) {
 
-                        rb.velocity = new Vector3(Math.Min(10*Math.Abs(this.gameObject.transform.position.x - xValDesired), (float)35)*Math.Sign(xValDesired - this.gameObject.transform.position.x), 0, 0);
+                        rb.velocity = new Vector3(Math.Min(10*Math.Abs(this.gameObject.transform.position.x - xValDesired), (float)50)*Math.Sign(xValDesired - this.gameObject.transform.position.x), 0, 0);
                     }
 
                     // If the ship is already in the correct position, that position is the home square for the leg, and the ship has left and is coming back  
@@ -194,14 +199,14 @@ public class velocity_dragging : MonoBehaviour
 
                 // If the ship is bearing to the up or down
                 if (this.curr_bearing == "Y"){
-                    Debug.Log("yCurrCoord");
-                    Debug.Log(yCurrCoord);
-                    Debug.Log("this.currPermPosition.y");
-                    Debug.Log(this.currPermPosition.y);
+                    // Debug.Log("yCurrCoord");
+                    // Debug.Log(yCurrCoord);
+                    // Debug.Log("this.currPermPosition.y");
+                    // Debug.Log(this.currPermPosition.y);
                     // Check if the cursor is indicating a grid square the ship is not at the center Y value of
                     // Add necessary velocity if not
                     if (Math.Abs(this.gameObject.transform.position.y - yValDesired) > .05) {
-                        rb.velocity = new Vector3(0, Math.Min(10*Math.Abs(this.gameObject.transform.position.y - yValDesired), (float)35)*Math.Sign(yValDesired - this.gameObject.transform.position.y), 0);
+                        rb.velocity = new Vector3(0, Math.Min(10*Math.Abs(this.gameObject.transform.position.y - yValDesired), (float)50)*Math.Sign(yValDesired - this.gameObject.transform.position.y), 0);
                     }
 
                     // If the ship is already in the correct position, that position is the home square for the leg, and the ship has left and is coming back  
@@ -281,8 +286,6 @@ public class velocity_dragging : MonoBehaviour
         GridSquare endOfLeg = this.path[this.lenPath];
             
         // before we leave add the position and length of the place we are leaving as a PathState to the history stack so we could jump back if need be
-        pathHistory.Push(new PathState(this.currPermPosition, this.lenPermPath));
-        Debug.Log("pathHistory len: " + pathHistory.Count.ToString());
 
         // if this is the first completed leg add the "0th" sprite to mark where the ship started
         if (this.lenPermPath == 0){
@@ -339,10 +342,15 @@ public class velocity_dragging : MonoBehaviour
         // mark the newly occupied square as occupied by the ship
         this.gameStateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = shipID;
 
+        // add the now pathState to the stack
+        pathHistory.Push(new PathState(this.currPermPosition, this.lenPermPath, this.pathHistory.Count));
 
 
         // clean up the ship location
         superficialSnapToPermPath();
+
+        // check to see if this new position is a valid solution
+        checkSolution(this.shipID, this.currPermPosition);
 
     }
 
@@ -375,13 +383,21 @@ public class velocity_dragging : MonoBehaviour
 
     // returns true if there is a wall at query location
     private Boolean isOccupied(Vector3 queryLoc){
-        // createPathSprite((int)queryLoc.x, (int)queryLoc.y, this.gameStateGrid[(int)queryLoc.x + 10, (int)queryLoc.y + 10]);
-        if ((this.gameStateGrid[(int)queryLoc.x + 10, (int)queryLoc.y + 10] == 0) || (this.gameStateGrid[(int)queryLoc.x + 10, (int)queryLoc.y + 10] == this.shipID)){
+
+        try{
+            if ((this.gameStateGrid[(int)queryLoc.x + 10, (int)queryLoc.y + 10] == 0) || (this.gameStateGrid[(int)queryLoc.x + 10, (int)queryLoc.y + 10] == this.shipID)){
+                return false;
+            }
+            else{
+                return true;
+            }   
+        }
+        catch (IndexOutOfRangeException e){
+            Debug.Log(e.Message);
             return false;
         }
-        else{
-            return true;
-        }
+
+
 
     }
 
@@ -390,9 +406,11 @@ public class velocity_dragging : MonoBehaviour
 
         // Create a new sprite that will represent the path
         GameObject newPathSprite = new GameObject();
+        newPathSprite.name = "pathTextSprite";
         SpriteRenderer newSpriteRenderer = newPathSprite.AddComponent<SpriteRenderer>();
         newSpriteRenderer.sprite = pathSpriteTexture;
         newPathSprite.transform.localPosition = new Vector3(x+.5f, y+.5f, 0);
+        newSpriteRenderer.sortingOrder = this.shipID*10;
 
         // Add a canvas that sprite
         newPathSprite.AddComponent<Canvas>();
@@ -400,12 +418,14 @@ public class velocity_dragging : MonoBehaviour
         // Add text to canvas
         GameObject myText = new GameObject();
         myText.transform.parent = newPathSprite.transform;
-        myText.name = "pathTextSprite";
+        myText.name = "pathTextSpriteText";
 
         TMPro.TextMeshPro text = myText.AddComponent<TMPro.TextMeshPro>();
         // text.font = (Font)Resources.Load("MyFont");
         text.text = lenPath.ToString();
+        text.color = Color.black;
         text.alignment = TMPro.TextAlignmentOptions.Center;
+        text.sortingOrder = (this.shipID*10 + 1);
 
         // Dynamically Determine Font Size and Text Box Attributes
         // 1 digit numbers
@@ -465,6 +485,11 @@ public class velocity_dragging : MonoBehaviour
         this.currPermPosition = this.roundStartSquare;
         this.permPath[0] = this.roundStartSquare;
         
+        // reset path history
+        this.pathHistory = new Stack<PathState>();
+        this.pathHistory.Push(new PathState(this.roundStartSquare, 0, 0));
+    
+
         this.path = new GridSquare[484];
         this.path[0] = this.roundStartSquare;
 
@@ -479,24 +504,33 @@ public class velocity_dragging : MonoBehaviour
     // Walk the ship back one length 
     private void resetLeg(){
 
-        PathState returnState = pathHistory.Pop();
+        // Pop off the current location
+        this.pathHistory.Pop();
+        // If we have reset all the way to the starting position
+        if (this.pathHistory.Count == 0){
+            this.pathHistory.Push(new PathState(this.roundStartSquare, 0, 0));
+        }
+
+        // look at location we want to reset back to with peek
+        PathState returnState = this.pathHistory.Peek();
         GridSquare returnLocation = returnState.location;
         int returnStepNumber = returnState.lenPermPath;
 
-        // If we have reset all the way to the starting position
-        if (pathHistory.Count == 0){
-            pathHistory.Push(new PathState(this.roundStartSquare, 0));
-        }
 
         // Delete previously placed path sprites
-        for (int i = returnStepNumber; i <= this.lenPermPath; i++){
+        for (int i = returnStepNumber + 1; i <= this.lenPermPath; i++){
             Destroy(this.pathSpriteList[i]);
             this.pathSpriteList[i] = null;
         }
-        
+        // if this return to round start square also delete the '0th' path sprite just for cleanliness
+        if (returnStepNumber == 0){
+            Destroy(this.pathSpriteList[0]);
+            this.pathSpriteList[0] = null;
+        }
+
         // update the gamestateGrid
         this.gameStateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = 0;
-        this.gameStateGrid[returnLocation.x + 10, returnLocation.y + 10] = shipID;
+        this.gameStateGrid[returnLocation.x + 10, returnLocation.y + 10] = this.shipID;
 
 
         // Reset lenPermPath
@@ -559,6 +593,23 @@ public class velocity_dragging : MonoBehaviour
         this.curr_bearing = "NONE";
     }
 
+    private void checkSolution(int shipID, GridSquare endSquare){
+        this.gameManager.GetComponent<ManagerScript>().checkSolution(shipID, endSquare);
+    }
+
+    public void setRoundStartPosition(){
+
+        // tell the ship that it's current position (the position at the end of the last round) is it's starting position for round n + 1 
+        // then erase all previous path and memory with resetShipPath()
+        this.roundStartSquare = this.currPermPosition;
+        resetShipPath();
+    }
+
+    public PathState reportPathState(){
+        return this.pathHistory.Peek();
+
+    }
+
 }
 
 // a way to refer to a grid element
@@ -577,6 +628,20 @@ public class GridSquare
         this.isOccupied = isOccupied;
     }
 
+    // helper function to compare two gridsquares without worrying about tagged on variable
+    public bool isEqualTo(GridSquare other){
+        if ((this.x == other.x) && (this.y == other.y)){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+
+    public override string ToString(){
+        return ("(" + x.ToString() + ", " + y.ToString() + ")");
+    }
+
 }
 
 // A class to be used as a shorthand to refer the full gamestate of a single ship
@@ -585,15 +650,13 @@ public class PathState
 {
     public GridSquare location;
     public int lenPermPath;
+    public int numMoves;
     // public GridSquare[] permPath;
 
-    public PathState(GridSquare location, int lenPermPath){
+    public PathState(GridSquare location, int lenPermPath, int numMoves){
         this.location = location;
         this.lenPermPath = lenPermPath; 
+        this.numMoves = numMoves;
     }
 }
 
-
-// TODO: FIX OUT OF BOUNDS ON X AXIS
-
-//TODO: AFTER A LEG IS RESET THE RESET HOME SQUARE SPRITE DISAPPEARS
