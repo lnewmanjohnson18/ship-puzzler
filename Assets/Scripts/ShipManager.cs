@@ -94,12 +94,10 @@ public class ShipManager : MonoBehaviour
         // ===============================================================================================================
 
         if (Input.GetKeyDown("space")){
-            resetShipPath();
+            resetShipToRoundStart();
         }
 
-        if (Input.GetKeyDown(KeyCode.Q)){
-            resetLeg();
-        }
+
 
 
 
@@ -124,23 +122,23 @@ public class ShipManager : MonoBehaviour
             if (this.curr_bearing == "NONE"){
 
                 // If the mouse is in another square to the right and there is no collision to the right
-                if (((float)Math.Floor(mousePos.x) > this.path[this.lenPath].x) && (!isOccupied(this.path[this.lenPath] + new Vector3(1,0,0)))){
+                if (((float)Math.Floor(mousePos.x) > this.path[this.lenPath].x) && (!isOccupied(this.path[this.lenPath] + new Vector3Int(1,0,0)))){
                     this.curr_bearing = "X";
                 }
 
                 // If the mouse is in another square to the left and there is no collision to the left 
-                else if ((mousePos.x < this.path[this.lenPath].x) && (!isOccupied(this.path[this.lenPath] + new Vector3(-1,0,0)))){
+                else if ((mousePos.x < this.path[this.lenPath].x) && (!isOccupied(this.path[this.lenPath] + new Vector3Int(-1,0,0)))){
                     this.curr_bearing = "X";
                 }
 
                 // If the mouse is in another square to the up and there is no collision to the up
-                else if (((float)Math.Floor(mousePos.y) > this.path[this.lenPath].y) && (!isOccupied(this.path[this.lenPath] + new Vector3(0,1,0)))){
+                else if (((float)Math.Floor(mousePos.y) > this.path[this.lenPath].y) && (!isOccupied(this.path[this.lenPath] + new Vector3Int(0,1,0)))){
                     this.curr_bearing = "Y";
                 }
 
 
                 // If the mouse is in another square to the down and there is no collision to the down
-                else if ((mousePos.y < this.path[this.lenPath].y) && (!isOccupied(this.path[this.lenPath] + new Vector3(0,-1,0)))){
+                else if ((mousePos.y < this.path[this.lenPath].y) && (!isOccupied(this.path[this.lenPath] + new Vector3Int(0,-1,0)))){
                     this.curr_bearing = "Y";
                 }
 
@@ -171,10 +169,6 @@ public class ShipManager : MonoBehaviour
 
                 // If the ship is bearing to the up or down
                 if (this.curr_bearing == "Y"){
-                    // Debug.Log("yCurrCoord");
-                    // Debug.Log(yCurrCoord);
-                    // Debug.Log("this.currPermPosition.y");
-                    // Debug.Log(this.currPermPosition.y);
                     // Check if the cursor is indicating a grid square the ship is not at the center Y value of
                     // Add necessary velocity if not
                     if (Math.Abs(this.gameObject.transform.position.y - yValDesired) > .05) {
@@ -208,9 +202,6 @@ public class ShipManager : MonoBehaviour
         // NOTE: currently this checks for strictly ANY change in X or Y. If the ship jumps between frames it will not correct.
 
         if ((this.path[this.lenPath].x != this.xCurrCoord) || (this.path[this.lenPath].y != this.yCurrCoord)){
-
-            // Add a sprite to mark the path
-            // this.createPathSprite(this.path[lenPath].x, this.path[lenPath].y, this.lenPath);
 
             // Add the new GridSquare to the path and update lenPath, xCurrCoord, yCurrCoord
             this.lenPath += 1;
@@ -287,14 +278,8 @@ public class ShipManager : MonoBehaviour
         this.curr_bearing = "NONE";
 
         // Mark the square we left from as unoccupied
+        GameManager.Instance.gamestateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = 0;
         this.gameStateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = 0;
-        
-        // // catch up the permanent path tracker to the newly completed leg
-        // for (int i = this.lenPermPath + 1; i <= this.lenPath; i++){
-        //     this.permPath[i] = this.path[i];
-        //     this.lenPermPath += 1;
-        //     createPathSprite(this.permPath[i].x, this.permPath[i].y, this.lenPermPath);
-        // }
 
         // update currPermPosition
         this.currPermPosition = this.permPath[lenPermPath];   
@@ -304,11 +289,14 @@ public class ShipManager : MonoBehaviour
         this.lenPath = this.lenPermPath;
 
         // mark the newly occupied square as occupied by the ship
-        this.gameStateGrid[(int)this.currPermPosition.x + 10, (int)this.currPermPosition.y + 10] = shipID;
+        GameManager.Instance.gamestateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = shipID;
+        this.gameStateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = shipID;
 
         // add the now pathState to the stack
         pathHistory.Push(new PathState(this.currPermPosition, this.lenPermPath, this.pathHistory.Count));
 
+        // tell the game manager to update its master list of moves
+        GameManager.Instance.addMoveToList(this.shipID, startOfLeg, endOfLeg);
 
         // clean up the ship location
         superficialSnapToPermPath();
@@ -345,11 +333,12 @@ public class ShipManager : MonoBehaviour
         this.locationTransform.localPosition = this.walls.GetCellCenterWorld(new Vector3Int(this.currPermPosition.x, this.currPermPosition.y, 0));
     }
 
-    // returns true if there is a wall at query location
-    private Boolean isOccupied(Vector3 queryLoc){
+    // returns true if there is an object at query location
+    private Boolean isOccupied(Vector3Int queryLoc){
 
         try{
-            if ((this.gameStateGrid[(int)queryLoc.x + 10, (int)queryLoc.y + 10] == 0) || (this.gameStateGrid[(int)queryLoc.x + 10, (int)queryLoc.y + 10] == this.shipID)){
+            // if ((this.gameStateGrid[queryLoc.x + 10, queryLoc.y + 10] == 0) || (this.gameStateGrid[queryLoc.x + 10, queryLoc.y + 10] == this.shipID)){
+            if ((GameManager.Instance.gamestateGrid[queryLoc.x + 10, queryLoc.y + 10] == 0) || (GameManager.Instance.gamestateGrid[queryLoc.x + 10, queryLoc.y + 10] == this.shipID)){
                 return false;
             }
             else{
@@ -431,7 +420,7 @@ public class ShipManager : MonoBehaviour
     }
 
     // resets all the ships to their positions at the start of the round
-    private void resetShipPath(){
+    public void resetShipToRoundStart(){
 
         // Delete previously placed path sprites
         for (int i = 0; i <= this.lenPath; i++){
@@ -440,9 +429,11 @@ public class ShipManager : MonoBehaviour
         this.pathSpriteList = new GameObject[484];
 
         // mark the old square square as empty
+        GameManager.Instance.gamestateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = 0;
         this.gameStateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = 0;
 
         // mark the new square as occupied
+        GameManager.Instance.gamestateGrid[this.roundStartSquare.x + 10, this.roundStartSquare.y + 10] = this.shipID;
         this.gameStateGrid[this.roundStartSquare.x + 10, this.roundStartSquare.y + 10] = this.shipID;
 
         // Reset path, permPath, and lenPath
@@ -467,11 +458,12 @@ public class ShipManager : MonoBehaviour
     }
 
     // Walk the ship back one length 
-    private void resetLeg(){
+    public void resetLeg(){
 
         // Pop off the current location
         this.pathHistory.Pop();
-        // If we have reset all the way to the starting position
+
+        // If we have reset all the way to the starting position add the starting buffer state
         if (this.pathHistory.Count == 0){
             this.pathHistory.Push(new PathState(this.roundStartSquare, 0, 0));
         }
@@ -494,7 +486,9 @@ public class ShipManager : MonoBehaviour
         }
 
         // update the gamestateGrid
+        GameManager.Instance.gamestateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = 0;
         this.gameStateGrid[this.currPermPosition.x + 10, this.currPermPosition.y + 10] = 0;
+        GameManager.Instance.gamestateGrid[returnLocation.x + 10, returnLocation.y + 10] = this.shipID;
         this.gameStateGrid[returnLocation.x + 10, returnLocation.y + 10] = this.shipID;
 
 
@@ -566,9 +560,9 @@ public class ShipManager : MonoBehaviour
     public void setRoundStartPosition(){
 
         // tell the ship that it's current position (the position at the end of the last round) is it's starting position for round n + 1 
-        // then erase all previous path and memory with resetShipPath()
+        // then erase all previous path and memory with resetShipToRoundStart()
         this.roundStartSquare = this.currPermPosition;
-        resetShipPath();
+        resetShipToRoundStart();
     }
 
     public PathState reportPathState(){
@@ -594,6 +588,7 @@ public class ShipManager : MonoBehaviour
             Debug.Log("ERROR: SHIP ATTEMPTED TO MARK LOCATION WITHOUT VALID METADATA (SHIPID)");
         }
         else{
+            GameManager.Instance.gamestateGrid[this.xCurrCoord + 10, this.yCurrCoord + 10] = this.shipID;
             this.gameStateGrid[this.xCurrCoord + 10, this.yCurrCoord + 10] = this.shipID;
         }
     }

@@ -38,7 +38,7 @@ public class PlayerManager : NetworkBehaviour
 
     }
 
-    public void postSolution(Tuple<int, Vector3>[] movesList, int numMoves, int lenPath, int[,] gamestateGrid)
+    public void postSolution(List<Tuple<int, Vector3>> movesList, int numMoves, int lenPath, int[,] gamestateGrid)
     {
 
         int[] flatGamestateGrid = flattenGrid(gamestateGrid);
@@ -70,16 +70,16 @@ public class PlayerManager : NetworkBehaviour
     }
 
 
-    [ Command ]
-    private void CmdPostSolution(Tuple<int, Vector3>[] movesList, int numMoves, int lenPath, int[,] flatGamestateGrid)
-    {
-        //TODO run server side validation check
+    // [ Command ]
+    // private void CmdPostSolution(List<Tuple<int, Vector3>> movesList, int numMoves, int lenPath, int[] flatGamestateGrid)
+    // {
+    //     //TODO run server side validation check
 
-        // save gamestate to server
+    //     // save gamestate to server
 
-        // send message to all clients that a solution has been posted
+    //     // send message to all clients that a solution has been posted
 
-        // RPC to finisher's client with "waiting for other players" Screen
-    }
+    //     // RPC to finisher's client with "waiting for other players" Screen
+    // }
 
 }

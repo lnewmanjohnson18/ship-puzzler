@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,7 +8,7 @@ using Mirror;
 
 public class GameManager : MonoBehaviour
 {
-    private int[,] gamestateGrid = new int[20, 20];
+    public int[,] gamestateGrid = new int[20, 20];
     // private int[,] roundStartGamestateGrid = new int[20, 20] {
     //     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     //     {-1,  0,  0,  0, -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, -1,  0,  0,  0, -1},
@@ -41,6 +42,9 @@ public class GameManager : MonoBehaviour
     private Vector3 finishPoint;
     private int finishingShipID;
 
+    private int totalSolutionLength;
+    private int totalSolutionNumMoves;
+
     public GameObject Ship1Prefab;
     public GameObject Ship2Prefab;
     public GameObject Ship3Prefab;
@@ -52,6 +56,7 @@ public class GameManager : MonoBehaviour
     public GameObject Test;
     private GameObject GridObject;
     private Tilemap Walls;
+    private GameObject UI;
     private GameObject nextRoundButton;
     private PlayerManager PlayerManager;
 
@@ -63,16 +68,13 @@ public class GameManager : MonoBehaviour
     private int numShips = 4;
     public int selectedShipID = 1;
     private Dictionary<int, GameObject> shipDict = new Dictionary<int, GameObject>();
-    // NOTE: this tracks ships by NAME as it appears in the entity list i.e. ship1, ship2, and does not match their ship id
-    //          shipID = shipName + 1 (currently)
-    // NOTE NOTE: BEING CHANGED right now
 
     // full list of moves. used to validate solution after finish and undo moves
-    private Tuple<int, Vector3Int>[] listOfMoves = new Tuple<int, Vector3Int>[] {};
+    // Tuple should be of the form <shipID, location>
+    // private Tuple<int, Vector3Int, Vector3Int>[] listOfMoves = new Tuple<int, Vector3Int, Vector3Int>[] {};
+    private List<Tuple<int, Vector3Int, Vector3Int>> listOfMoves = new List<Tuple<int, Vector3Int, Vector3Int>>();
 
-
-    private int totalSolutionLength;
-    private int totalSolutionNumMoves;
+    // List<string> dinosaurs = new List<string>();
 
     // === DECLARE AS SINGLETON ===
     private static GameManager _instance;
@@ -124,6 +126,7 @@ public class GameManager : MonoBehaviour
         // Get references to objects in scene
         this.GridObject = GameObject.Find("Grid");
         this.Walls = GameObject.Find("Walls").GetComponent<Tilemap>();
+        this.UI = GameObject.Find("Canvas");
         this.nextRoundButton = GameObject.Find("NextRoundButton");
         this.nextRoundButton.SetActive(false);
 
@@ -150,6 +153,14 @@ public class GameManager : MonoBehaviour
                 Debug.Log(lineString);
             }
         }
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            resetMostRecentMove();
+        }
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            resetToRoundStart();
+        }
     }
 
 
@@ -168,6 +179,25 @@ public class GameManager : MonoBehaviour
         this.finishPoint = generateFinishPoint(this.finishingShipID);
     }
 
+    public void resetToRoundStart()
+    {
+        // reset game grid
+        resetGameGrid();
+
+        // tell all the ships to reset themselves
+        foreach (KeyValuePair<int, GameObject> kvp in this.shipDict)
+        {
+            kvp.Value.GetComponent<ShipManager>().resetShipToRoundStart();
+        }
+
+        // reset stats
+        totalSolutionNumMoves = 0;
+        totalSolutionLength = 0;
+
+        // update stats text
+        updateStatsText();
+    }
+
     public void spawnShips()
     {
         Instantiate(Ship1Prefab);
@@ -182,7 +212,9 @@ public class GameManager : MonoBehaviour
 
     public void initializeGameGrid()
     {
+        // call this function to initialize the game grid
         resetGameGrid();
+
     }
 
     public void initializeShips()
@@ -219,7 +251,6 @@ public class GameManager : MonoBehaviour
     // resets the game grid to the way it was at the start of the round
     private void resetGameGrid(){
 
-        // TODO: DONT DO THIS
         this.gamestateGrid = new int[20, 20];   
         // Iterate through the starting game state and add all walls to the grid
         for (int i = -10; i < 10; i++){
@@ -241,14 +272,14 @@ public class GameManager : MonoBehaviour
         // Iterate through ships and add all ships to the grid
         foreach (KeyValuePair<int, GameObject> kvp in this.shipDict){
             Vector3Int point = kvp.Value.GetComponent<ShipManager>().roundStartSquare;
-            Debug.Log("gamestateGrid");
-            Debug.Log(gamestateGrid);
-            Debug.Log("kvp.Value");
-            Debug.Log(kvp.Value);
-            Debug.Log("kvp.Value.GetComponent<ShipManager>().shipID");
-            Debug.Log(kvp.Value.GetComponent<ShipManager>().shipID);
-            Debug.Log("point.x");
-            Debug.Log(point.x);
+            // Debug.Log("gamestateGrid");
+            // Debug.Log(gamestateGrid);
+            // Debug.Log("kvp.Value");
+            // Debug.Log(kvp.Value);
+            // Debug.Log("kvp.Value.GetComponent<ShipManager>().shipID");
+            // Debug.Log(kvp.Value.GetComponent<ShipManager>().shipID);
+            // Debug.Log("point.x");
+            // Debug.Log(point.x);
 
             gamestateGrid[point.x + 10, point.y + 10] = kvp.Value.GetComponent<ShipManager>().shipID;
         }
@@ -290,7 +321,7 @@ public class GameManager : MonoBehaviour
 
 
             // TODO FILL THIS IN
-            PlayerManager.postSolution();
+            // PlayerManager.postSolution();
 
             // activate button
             this.nextRoundButton.SetActive(true);
@@ -318,6 +349,9 @@ public class GameManager : MonoBehaviour
         // maybe move the ships to new random locations?
     }
 
+
+    // TODO: RENAME THIS TO LIKE "startNewRound" CAUSE THATS WHAT IT DOES RIGHT?
+    // DO THIS AND THE ABOVE FUNCTION COVER DIFFERENT USE CASES?
     private void resetGameState(){
 
         // Remove old finish point
@@ -331,6 +365,85 @@ public class GameManager : MonoBehaviour
         // Reset the game grid
         resetGameGrid();
     }
+
+    // resets the most recent move the player has input
+    private void resetMostRecentMove()
+    {
+
+        // check if there is a move to reset
+        if (listOfMoves.Count > 0)
+        {
+            // peel off the move to be reset
+            Tuple<int, Vector3Int, Vector3Int> mostRecentMove = listOfMoves[listOfMoves.Count - 1];
+
+            // remove it from the list of moves
+            listOfMoves.RemoveAt(listOfMoves.Count - 1);
+
+            // move the ship piece back to the previous location
+            shipDict[mostRecentMove.Item1].GetComponent<ShipManager>().resetLeg();
+
+            // remove the length of the reset move from total length of path
+            totalSolutionLength -= Math.Max(Math.Abs(mostRecentMove.Item2.x - mostRecentMove.Item3.x),  Math.Abs(mostRecentMove.Item2.y - mostRecentMove.Item3.y));
+        
+            // decrement total num moves
+            totalSolutionNumMoves--;
+
+            updateStatsText();
+        }
+
+    
+
+
+
+
+    }
+
+    public void addMoveToList(int shipID, Vector3Int startLocation, Vector3Int endLocation)
+    {
+        // add move to the list of all moves
+        this.listOfMoves.Add(new Tuple<int, Vector3Int, Vector3Int>(shipID, startLocation, endLocation));
+
+        // add the new move to the total length of path
+        totalSolutionLength += Math.Max(Math.Abs(startLocation.x - endLocation.x),  Math.Abs(startLocation.y - endLocation.y));
+
+        // increment total num moves
+        totalSolutionNumMoves++;
+
+        updateStatsText();
+
+    }
+
+
+    // update the text telling the player how long their current solution is
+    // this should be called any time a leg is added or removed to movesList  
+    public void updateStatsText()
+    {
+        foreach (Transform UIElement in this.UI.transform)
+        {
+            TMPro.TextMeshProUGUI textObj = UIElement.GetComponent<TMPro.TextMeshProUGUI>();
+            if (UIElement.gameObject.name == "NumMovesText")
+            {
+                Debug.Log("updating text to:" + textObj.text.Split(":")[0] + ": " + totalSolutionNumMoves.ToString());
+                textObj.text = textObj.text.Split(":")[0] + ": " + totalSolutionNumMoves.ToString();                 
+            }
+
+            if (UIElement.gameObject.name == "SolutionLengthText")
+            {
+                Debug.Log("updating text to:" + textObj.text.Split(":")[0] + ": " + totalSolutionNumMoves.ToString());
+                textObj.text = textObj.text.Split(":")[0] + ": " + totalSolutionLength.ToString();                 
+
+            }
+        }
+    }
+
+//         foreach (Transform child in this.UI.transform.Find("Canvas")){
+//             TMPro.TextMeshProUGUI textObj = child.GetComponent<TMPro.TextMeshProUGUI>();
+//             if (child.gameObject.name == "NumMovesText"){
+//                 textObj.text = textObj.text.Split(":")[0] + ": " + this.totalSolutionNumMoves.ToString();   
+//             }
+//             if (child.gameObject.name == "LenPathText"){
+//                 textObj.text = textObj.text.Split(":")[0] + ": " + this.totalSolutionLength.ToString();   
+//             }
     
 }
 
