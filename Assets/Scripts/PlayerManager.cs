@@ -1,3 +1,7 @@
+// this script handles the interaction between Network and Gamestate/Gameboard
+// NetworkManager -> PlayerManager  -> GameManager
+//                                  -> ShipManager
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,7 +17,9 @@ public class PlayerManager : NetworkBehaviour
     // this is a server only object that stores the state of the game between rounds
     private int[,] serverGamestateGrid;
     private MyNetworkManager NetworkManagerScript;
-
+    private NetworkIdentity NetworkIdentity;
+    // private uint netID;
+    public Tuple<List<Tuple<int, Vector3Int, Vector3Int>>, int, int, int[,]> currSolution;
     private bool inServerCountdown = false;
     private float countdownTime = 30;
     private int lastSentTime;
@@ -24,6 +30,11 @@ public class PlayerManager : NetworkBehaviour
         // get ref to network manager
         // cannot be done with singleton since mirror API implements its own singleton declaration for NetworkManager
         this.NetworkManagerScript = GameObject.Find("NetworkManager").GetComponent<MyNetworkManager>();
+
+        // // save network connection information
+        // this.NetworkIdentity = this.gameObject.GetComponent<NetworkIdentity>();
+        // this.netID = this.NetworkIdentity.netId;
+
 
         if (isLocalPlayer)
         {
@@ -43,11 +54,8 @@ public class PlayerManager : NetworkBehaviour
         }
 
         if (isServer)
-        {
+        {   
 
-
-            // actually just leave this blank until first submission is posted
-            // initializeServerGamestateGrid();
         }
     }
 
@@ -57,6 +65,10 @@ public class PlayerManager : NetworkBehaviour
     {
         if (isServer)
         {
+            if (Input.GetKeyDown(KeyCode.X))
+            {
+                cleanupRound();
+            }
             if (inServerCountdown)
             {
                 countdownTime -= Time.deltaTime;
@@ -64,6 +76,12 @@ public class PlayerManager : NetworkBehaviour
                 {
                     RpcBroadcastCountdownRemaining((int)Math.Floor(countdownTime));
                     lastSentTime = (int)Math.Floor(countdownTime);
+                }
+
+                // if the countdown is over
+                if (countdownTime < 0)
+                {
+                    cleanupRound();
                 }
             }
         }
@@ -79,17 +97,45 @@ public class PlayerManager : NetworkBehaviour
     {
         if (isLocalPlayer)
         {
+            // TODO: RUN A CHECK IN HERE TO SEE IF ITS ACTUALLY A VALID SOLUTION
             int[] flatGamestateGrid = flattenGrid(gamestateGrid);
             string movesListString = deconstructMovesList(movesList);
-            // Send solution to the client
-            // TODO: RUN A CHECK IN HERE TO SEE IF ITS ACTUALLY A VALID SOLUTION
-            CmdPostSolution(movesListString, numMoves, lenPath, flatGamestateGrid);
+            
+            // if this is the first solution that a client has posted save it and post to the server
+            if (!inServerCountdown)
+            {
+                CmdPostSolution(movesListString, numMoves, lenPath, flatGamestateGrid);
+                currSolution = new Tuple<List<Tuple<int, Vector3Int, Vector3Int>>, int, int, int[,]>(movesList, numMoves, lenPath, gamestateGrid);
+            }
+            // if another client has already posted and we are in the countdown to the end of the round then just save and wait
+            else 
+            {
+                currSolution = new Tuple<List<Tuple<int, Vector3Int, Vector3Int>>, int, int, int[,]>(movesList, numMoves, lenPath, gamestateGrid);
+            }
+
 
         }
 
     }
 
-    // takes the moveslist and turns it into a string so it can be communicated over the network
+    // brings the round to an end. calls for all most recent solutions and then displays the end of round screen
+    public void cleanupRound()
+    {
+        if (isServer)
+        {
+            // after the timer has ticked down ask the clients for any final solutions
+            // NOTE: this call initiates a chain of network calls
+            //  RpcRequestFinalSolutions() -> CmdSendFinalSolution() -> RpcActivateRoundEndScreen()
+            RpcRequestFinalSolutions();
+
+        }
+    }
+
+    // ===============================================================================================================
+    //  DATA MANAGEMENT METHODS 
+    // =============================================================================================================== 
+
+    // takes the movesList and turns it into a string so it can be communicated over the network
     // List<Tuple<int, Vector3Int>> is not a valid type 
     private string deconstructMovesList(List<Tuple<int, Vector3Int, Vector3Int>> movesList)
     {
@@ -125,6 +171,9 @@ public class PlayerManager : NetworkBehaviour
         return resGrid;
     }
 
+    // ===============================================================================================================
+    //  NETWORKING METHODS 
+    // =============================================================================================================== 
 
     // client calls this code to tell the server that it would like to post a solution to the current board
     [ Command ]
@@ -159,11 +208,6 @@ public class PlayerManager : NetworkBehaviour
     [ TargetRpc ]
     public void RpcActivateWaitScreen()
     {
-        // foreach (NetworkConnectionToClient conn in NetworkManagerScript.getClientConnections())
-        //     {
-        //         Debug.Log("conn");
-        //         Debug.Log(conn);
-        //     }
         GameManager.Instance.activateWaitScreen();
     }
 
@@ -175,5 +219,38 @@ public class PlayerManager : NetworkBehaviour
     {
         GameManager.Instance.updateTimerText(timeRemaining);
     }
+
+    // server calls this to ask if clients have any final solutions before closing the round
+    [ ClientRpc ]
+    public void RpcRequestFinalSolutions()
+    {
+        CmdSendFinalSolution(deconstructMovesList(currSolution.Item1), currSolution.Item2, currSolution.Item3, flattenGrid(currSolution.Item4));
+    }
+
+    [ Command ]
+    public void CmdSendFinalSolution(string deconstructedMovesList, int numMoves, int lenPath, int[] flatGamestateGrid)
+    {
+        // TODO run server side validation check
+
+        RpcActivateRoundEndScreen(numMoves, lenPath, netId);
+
+        // DEP
+        // Tuple<int[], int[]> scoreLists = GameManager.Instance.collectFinalScores(numMoves, lenPath, netId);
+        // Debug.Log()
+        // RpcActivateRoundEndScreen(numMoves, lenPath, netId);
+
+    }
+
+    [ ClientRpc ]
+    public void RpcActivateRoundEndScreen(int numMoves, int lenPath, uint netId)
+    {
+        GameManager.Instance.activateRoundEndScreen(numMoves, lenPath ,netId);
+    }
+
+    // [ ClientRpc ]
+    // public void RpcActivateRoundEndScreen(int[] finalNumMovesScores, int[] finalLengthScores, uint netId)
+    // {
+    //     GameManager.Instance.activateRoundEndScreen(finalNumMovesScores, finalLengthScores, uint netId);
+    // }
 
 }

@@ -45,9 +45,13 @@ public class GameManager : MonoBehaviour
     private Vector3Int finishPoint;
     private int finishingShipID;
     private bool inCountdown = false;
+    private Dictionary<uint, Tuple<int, int>> roundEndResultsDict = new Dictionary<uint, Tuple<int, int>>();
+    private List<int> currNumMovesResults = new List<int>();
+    private List<int> currLengthResults = new List<int>();
 
     private int totalSolutionLength;
     private int totalSolutionNumMoves;
+    // private Tuple<List<int, Vector3Int, Vector3Int>, int, int, int[,]> currentSolution;
 
     public GameObject Ship1Prefab;
     public GameObject Ship2Prefab;
@@ -78,6 +82,11 @@ public class GameManager : MonoBehaviour
     // Tuple should be of the form <shipID, startLocation, endLocation>
     private List<Tuple<int, Vector3Int, Vector3Int>> movesList = new List<Tuple<int, Vector3Int, Vector3Int>>();
 
+    // SERVER VARIABLES
+    // TODO: FIX- this puts a cap of 10 players on the game 
+    private int[] finalNumMovesScores = new int[10];
+    private int[] finalLengthScores = new int[10];
+
     // List<string> dinosaurs = new List<string>();
 
     // === DECLARE AS SINGLETON ===
@@ -105,7 +114,7 @@ public class GameManager : MonoBehaviour
         // Get references to objects in scene
         this.GridObject = GameObject.Find("Grid");
         this.Walls = GameObject.Find("Walls").GetComponent<Tilemap>();
-        this.UI = GameObject.Find("Canvas");
+        this.UI = GameObject.Find("PersistentUI");
         this.nextRoundButton = GameObject.Find("NextRoundButton");
         this.nextRoundButton.SetActive(false);
         this.postSolutionButton = GameObject.Find("PostSolutionButton");
@@ -435,6 +444,107 @@ public class GameManager : MonoBehaviour
 
     }
 
+    public void activateRoundEndScreen(int numMoves, int lenPath, uint netId)
+    {
+        Debug.Log("in activateRoundEndScreen");
+        Debug.Log("netId");
+        Debug.Log(netId);
+        Debug.Log("numMoves");
+        Debug.Log(numMoves);
+        Debug.Log("lenPath");
+        Debug.Log(lenPath);
+        // disable the wait screen or the countdown UI if either are active
+        this.transform.GetChild(0).gameObject.SetActive(false);
+        this.transform.GetChild(1).gameObject.SetActive(false);
+        //activate the roundEndScreen
+        this.transform.GetChild(2).gameObject.SetActive(true);
+
+
+        // safety check that this is the first post for this netId
+        if (!roundEndResultsDict.ContainsKey(netId))
+        {
+            Debug.Log("adding score to text");
+            // add the score to the resultsDict
+            roundEndResultsDict.Add(netId, new Tuple<int, int>(numMoves, lenPath));
+            //update player column, then NumMoves column, then Length column
+            this.transform.GetChild(2).transform.GetChild(1).GetComponent<TMPro.TextMeshProUGUI>().text += "" + netId + "\n";
+            this.transform.GetChild(2).transform.GetChild(2).GetComponent<TMPro.TextMeshProUGUI>().text += "" + numMoves + "\n";
+            this.transform.GetChild(2).transform.GetChild(3).GetComponent<TMPro.TextMeshProUGUI>().text += "" + lenPath + "\n";
+
+        }
+        else
+        {
+            Debug.Log("++WARNING++: results were posted twice for netId" + netId);
+        }
+
+    }
+
+    //DEP
+    // public void activateRoundEndScreen(int[] finalNumMovesScores, int[] finalLengthScores)
+    // {
+    //     // disable the wait screen or the countdown UI if either are active
+    //     this.transform.GetChild(0).gameObject.SetActive(false);
+    //     this.transform.GetChild(1).gameObject.SetActive(false);
+    //     this.transform.GetChild(2).gameObject.SetActive(true);
+
+    //     // update state
+    //     inCountdown = false;
+
+    //     // will be filled in and used to set endscreen text
+    //     string updatePlayersString = "";
+    //     string updateNumMovesString = "";
+    //     string updateLengthString = "";
+
+    //     //print any new information to the text
+    //     for (int i = 0; i < finalNumMovesScores.Length; i++)
+    //     {
+
+    //         // if there is a new NumMoves score posted for player_i
+    //         if (currNumMovesResults[i] == 0)
+    //         // if (currNumMovesResults.ElementAtOrDefault(i) != null)
+    //         {
+    //             currNumMovesResults.Insert(i, finalNumMovesScores[i]);
+    //             // updatePlayersString += "" + i + "\n";
+    //         }
+
+    //         // if there is a NumMoves score for player_i from this or any previous call of activateRoundEndScreen add to text
+    //         if (currNumMovesResults[i] != 0)
+    //         {
+    //             updatePlayersString += "" + i + "\n";
+    //             updateNumMovesString += "" + currNumMovesResults[i] + "\n";
+    //         }
+
+    //         // if there is a new Length score posted for player_i
+    //         if (currLengthResults[i] == 0)
+    //         {
+    //             currLengthResults.Insert(i, finalLengthScores[i]);
+    //         }
+
+    //         // if there is a length score for player_i from this or any previous call of activateRoundEndScreen add to text
+    //         if (currLengthResults[i] != 0)
+    //         {
+    //             updateLengthString += "" + currLengthResults[i] + "\n";
+    //         }
+    //     }
+
+    //     //update player column, then NumMoves column, then Length column
+    //     this.transform.GetChild(1).transform.GetChild(0).GetComponent<TMPro.TextMeshProUGUI>().text = updatePlayersString;
+    //     this.transform.GetChild(1).transform.GetChild(1).GetComponent<TMPro.TextMeshProUGUI>().text = updateNumMovesString;
+    //     this.transform.GetChild(1).transform.GetChild(2).GetComponent<TMPro.TextMeshProUGUI>().text = updateLengthString;
+
+    // }
+
+    //DEP
+    public Tuple<int[], int[]> collectFinalScores(int numMoves, int lenPath, uint senderNetId)
+    {
+        // finalNumMovesScores
+        finalNumMovesScores[senderNetId] = numMoves;
+        finalLengthScores[senderNetId] = lenPath;
+            
+        return new Tuple<int[], int[]>(finalNumMovesScores, finalLengthScores);
+
+    }
+
     // function to be called every frame when the countdown timer is running
     public void updateTimerText(float timeRemaining)
     {
@@ -479,15 +589,11 @@ public class GameManager : MonoBehaviour
         }
     }
 
-//         foreach (Transform child in this.UI.transform.Find("Canvas")){
-//             TMPro.TextMeshProUGUI textObj = child.GetComponent<TMPro.TextMeshProUGUI>();
-//             if (child.gameObject.name == "NumMovesText"){
-//                 textObj.text = textObj.text.Split(":")[0] + ": " + this.totalSolutionNumMoves.ToString();   
-//             }
-//             if (child.gameObject.name == "LenPathText"){
-//                 textObj.text = textObj.text.Split(":")[0] + ": " + this.totalSolutionLength.ToString();   
-//             }
-    
+    // ===============================================================================================================
+    // SERVER METHODS
+    // ===============================================================================================================
+
+    // N/A rn
 }
 
 // ==================== SUPPLEMENTAL CLASSES ====================
