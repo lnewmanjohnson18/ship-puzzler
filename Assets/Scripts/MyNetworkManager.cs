@@ -17,9 +17,6 @@ public class MyNetworkManager : NetworkManager
 
     public override void OnServerConnect(NetworkConnectionToClient conn)
     {
-        Debug.Log("connection to server logged");
-        Debug.Log("conn");
-        Debug.Log(conn);
         clientConnections.Add(conn);
         // connectionToClient = conn;
     }

@@ -14,6 +14,10 @@ public class PlayerManager : NetworkBehaviour
     private int[,] serverGamestateGrid;
     private MyNetworkManager NetworkManagerScript;
 
+    private bool inServerCountdown = false;
+    private float countdownTime = 30;
+    private int lastSentTime;
+
     void Start()
     {   
 
@@ -51,6 +55,18 @@ public class PlayerManager : NetworkBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (isServer)
+        {
+            if (inServerCountdown)
+            {
+                countdownTime -= Time.deltaTime;
+                if ((countdownTime % 1 < .1) && (Math.Floor(countdownTime) != lastSentTime))
+                {
+                    RpcBroadcastCountdownRemaining((int)Math.Floor(countdownTime));
+                    lastSentTime = (int)Math.Floor(countdownTime);
+                }
+            }
+        }
 
     }
 
@@ -61,8 +77,6 @@ public class PlayerManager : NetworkBehaviour
 
     public void postSolution(List<Tuple<int, Vector3Int, Vector3Int>> movesList, int numMoves, int lenPath, int[,] gamestateGrid)
     {
-
-        // CLIENT CODE =======================
         if (isLocalPlayer)
         {
             int[] flatGamestateGrid = flattenGrid(gamestateGrid);
@@ -72,8 +86,6 @@ public class PlayerManager : NetworkBehaviour
             CmdPostSolution(movesListString, numMoves, lenPath, flatGamestateGrid);
 
         }
-        //====================================
-
 
     }
 
@@ -120,19 +132,19 @@ public class PlayerManager : NetworkBehaviour
     {
         //TODO run server side validation check
 
-
+        // TODO this could be a clientRpc?
         foreach (NetworkConnectionToClient conn in NetworkManagerScript.getClientConnections())
             {
                 RpcNotifySolutionPosted(conn, numMoves, lenPath);
                 
             }
 
-        // save gamestate to server
+        // TODO save gamestate to server
 
-        // send message to all clients that a solution has been posted
-
-        // RPC to finisher's client with "waiting for other players" Screen
+        // RPC to finisher's client with "waiting for other players" screen which will counteract the affects of RpcNotifySolutionPosted
         RpcActivateWaitScreen();
+
+        inServerCountdown = true;
     }
 
     // server calls this code to tell all the clients that someone has posted a solution to the current board
@@ -140,18 +152,28 @@ public class PlayerManager : NetworkBehaviour
     public void RpcNotifySolutionPosted(NetworkConnection conn, int numMoves, int lenPath)
     {
         Debug.Log("Another client has posted a solution!");
+        GameManager.Instance.activateCountdown(numMoves, lenPath);
 
     }
 
     [ TargetRpc ]
     public void RpcActivateWaitScreen()
     {
-        foreach (NetworkConnectionToClient conn in NetworkManagerScript.getClientConnections())
-            {
-                Debug.Log("conn");
-                Debug.Log(conn);
-            }
-        Debug.Log("Client gets a wait screen");
+        // foreach (NetworkConnectionToClient conn in NetworkManagerScript.getClientConnections())
+        //     {
+        //         Debug.Log("conn");
+        //         Debug.Log(conn);
+        //     }
+        GameManager.Instance.activateWaitScreen();
+    }
+
+
+    // broadcasts the timeremaining to all clients who are in countdown
+    // sends as an int and only sends at second intervals
+    [ ClientRpc]
+    public void RpcBroadcastCountdownRemaining(int timeRemaining)
+    {
+        GameManager.Instance.updateTimerText(timeRemaining);
     }
 
 }

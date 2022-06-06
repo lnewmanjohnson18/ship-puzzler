@@ -44,6 +44,7 @@ public class GameManager : MonoBehaviour
     private System.Random randomGenerator = new System.Random();
     private Vector3Int finishPoint;
     private int finishingShipID;
+    private bool inCountdown = false;
 
     private int totalSolutionLength;
     private int totalSolutionNumMoves;
@@ -124,11 +125,11 @@ public class GameManager : MonoBehaviour
     {      
         if (isAwake)
         {
-            // GameObject finishingShip = shipDict[finishingShipID];
-            // ShipManager scriptRef = finishingShip.GetComponent<ShipManager>();
-            // Debug.Log("finishingShip");
-            // Debug.Log(finishingShip);
-            // Vector3Int finishingShipCurrPermPosition = finishingShip.GetComponent<ShipManager>().currPermPosition;
+            // if the player is in the countdown phase
+            // if (inCountdown)
+            // {
+
+            // }
 
             if (shipDict[finishingShipID].GetComponent<ShipManager>().currPermPosition == finishPoint)
             {
@@ -145,6 +146,9 @@ public class GameManager : MonoBehaviour
         // debugging commands here
         if (Input.GetKeyDown(KeyCode.X))
         {
+            // int[,] fakeGrid = new int[20,20];
+            PlayerManager.postSolution(new List<Tuple<int, Vector3Int, Vector3Int>>(), 10, 300, new int[20,20]);
+            // this.activateCountdown(10, 100);
             // this.postSolutionButton.SetActive(true);
             // PlayerManager.postSolution(movesList, totalSolutionNumMoves, totalSolutionLength, gamestateGrid);
             // for (int i = 0; i < 20; i++){
@@ -410,7 +414,33 @@ public class GameManager : MonoBehaviour
 
     }
 
+    // called when the server alerts that a solution has been posted and indicates to the player the countdown has started
+    public void activateCountdown(int numMoves, int lenSolution)
+    {
+        this.transform.GetChild(1).gameObject.SetActive(true);
+        this.transform.GetChild(1).transform.GetChild(1).GetComponent<TMPro.TextMeshProUGUI>().text = "NumMoves: " + numMoves;
+        this.transform.GetChild(1).transform.GetChild(2).GetComponent<TMPro.TextMeshProUGUI>().text = "Length: " + lenSolution;
 
+        // this will cause text on the newly activated canvas to be updated every frame in Update{}
+        inCountdown = true;
+    }
+
+    public void activateWaitScreen()
+    {
+        // shut off the countdown
+        inCountdown = false;
+
+        // activate the wait screen
+        this.transform.GetChild(0).gameObject.SetActive(true);
+
+    }
+
+    // function to be called every frame when the countdown timer is running
+    public void updateTimerText(float timeRemaining)
+    {
+        this.transform.GetChild(1).transform.GetChild(0).GetComponent<TMPro.TextMeshProUGUI>().text = "Time Remaining:\n" + timeRemaining;
+
+    }
 
     public void addMoveToList(int shipID, Vector3Int startLocation, Vector3Int endLocation)
     {
