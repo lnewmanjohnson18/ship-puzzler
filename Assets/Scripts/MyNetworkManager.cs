@@ -7,26 +7,44 @@ using Mirror;
 public class MyNetworkManager : NetworkManager
 {
     private NetworkConnection connectionToHost;
+    // public NetworkConnection connectionToClient;
+    public List<NetworkConnectionToClient> clientConnections = new List<NetworkConnectionToClient>();
 
-    public override void OnStartServer(){
+    public override void OnStartServer()
+    {
         Debug.Log("Server Start");
     }
 
-    public override void OnStopServer(){
+    public override void OnServerConnect(NetworkConnectionToClient conn)
+    {
+        Debug.Log("connection to server logged");
+        Debug.Log("conn");
+        Debug.Log(conn);
+        clientConnections.Add(conn);
+        // connectionToClient = conn;
+    }
+
+    public override void OnStopServer()
+    {
         Debug.Log("Server Stopped");
     }
 
-    public override void OnClientConnect(NetworkConnection conn){
+    public override void OnClientConnect()
+    {
         Debug.Log("Connected to Server");
-        connectionToHost = conn;
         SceneManager.LoadScene("GameBoard");
     }
 
-    public override void OnClientDisconnect(NetworkConnection conn){
+    public override void OnClientDisconnect()
+    {
         Debug.Log("Disconnect from Server");
     }
 
-    void Update()
+    public List<NetworkConnectionToClient> getClientConnections()
     {
+        //TODO: add a check in here to make sure that no one has disconnected
+        // or do it in OnServerDisconnect?
+        return clientConnections;
     }
 }
+

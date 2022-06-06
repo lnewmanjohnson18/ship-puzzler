@@ -93,9 +93,10 @@ public class ShipManager : MonoBehaviour
         // See if the path has been reset by user
         // ===============================================================================================================
 
-        if (Input.GetKeyDown("space")){
-            resetShipToRoundStart();
-        }
+        // if (Input.GetKeyDown("space")){
+        //     resetShipToRoundStart();
+        // }
+        // DEP: THIS IS CALLED DOWN FROM MANAGER NOW
 
 
 
@@ -570,8 +571,9 @@ public class ShipManager : MonoBehaviour
 
     }
 
-    public void initializeShip(int[,] roundStartGamestateGrid){
+    public void initializeShip(int[,] roundStartGamestateGrid, int shipID){
         // TODO, MAKE POSITION AN ARGUMENT THAT COMES IN HERE RATHER THAN SET TO xCURRCOORD
+        this.shipID = shipID;
         this.gameStateGrid = roundStartGamestateGrid;
         this.gridObject = GameObject.Find("Grid");
         this.walls = GameObject.Find("Walls").GetComponent<Tilemap>();

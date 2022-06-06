@@ -8,6 +8,9 @@ using Mirror;
 
 public class GameManager : MonoBehaviour
 {
+    // track whether or not the whole game has been loaded in and whether or not we should run things in update{}
+    public bool isAwake = false;
+
     public int[,] gamestateGrid = new int[20, 20];
     // private int[,] roundStartGamestateGrid = new int[20, 20] {
     //     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
@@ -39,7 +42,7 @@ public class GameManager : MonoBehaviour
     public Sprite finishPointTexture4;
     private Sprite[] finishPointTextureList = new Sprite[4];
     private System.Random randomGenerator = new System.Random();
-    private Vector3 finishPoint;
+    private Vector3Int finishPoint;
     private int finishingShipID;
 
     private int totalSolutionLength;
@@ -58,6 +61,7 @@ public class GameManager : MonoBehaviour
     private Tilemap Walls;
     private GameObject UI;
     private GameObject nextRoundButton;
+    private GameObject postSolutionButton;
     private PlayerManager PlayerManager;
 
     // private GameObject gridObject;
@@ -70,9 +74,8 @@ public class GameManager : MonoBehaviour
     private Dictionary<int, GameObject> shipDict = new Dictionary<int, GameObject>();
 
     // full list of moves. used to validate solution after finish and undo moves
-    // Tuple should be of the form <shipID, location>
-    // private Tuple<int, Vector3Int, Vector3Int>[] listOfMoves = new Tuple<int, Vector3Int, Vector3Int>[] {};
-    private List<Tuple<int, Vector3Int, Vector3Int>> listOfMoves = new List<Tuple<int, Vector3Int, Vector3Int>>();
+    // Tuple should be of the form <shipID, startLocation, endLocation>
+    private List<Tuple<int, Vector3Int, Vector3Int>> movesList = new List<Tuple<int, Vector3Int, Vector3Int>>();
 
     // List<string> dinosaurs = new List<string>();
 
@@ -81,33 +84,8 @@ public class GameManager : MonoBehaviour
 
     public static GameManager Instance {get {return _instance; } }
 
-
-    // player calls this when it is loaded in to tell the gameManager to get going
-    public void wakeManager(PlayerManager PlayerManager){
-        // save a reference to the play manager
-        this.PlayerManager = PlayerManager;
-
-        // Name all of the ships
-        for (int i = 1; i <= this.numShips; i++){
-
-            // reference the ship
-            GameObject ship_i = GameObject.Find(("Ship" + i.ToString() + "(Clone)"));
-
-            // add the ship to the shipDict
-            this.shipDict.Add(i, ship_i);
-
-            // set the ID. Ship1 = int 1, Ship2 = int 2, etc..
-            ship_i.GetComponent<ShipManager>().setID(i);
-        }
-
-        setupNewGame();
-    }
-
     void Awake()
     {
-
-        // set gameStateGrid to its starting configuration
-        // gamestateGrid = roundStartGamestateGrid;
 
         if (_instance != null && _instance != this){
             Destroy(this.gameObject);
@@ -129,6 +107,8 @@ public class GameManager : MonoBehaviour
         this.UI = GameObject.Find("Canvas");
         this.nextRoundButton = GameObject.Find("NextRoundButton");
         this.nextRoundButton.SetActive(false);
+        this.postSolutionButton = GameObject.Find("PostSolutionButton");
+        this.postSolutionButton.SetActive(false);
 
 
     }
@@ -141,29 +121,72 @@ public class GameManager : MonoBehaviour
 
     // Update is called once per frame
     void Update()
-    {        
+    {      
+        if (isAwake)
+        {
+            // GameObject finishingShip = shipDict[finishingShipID];
+            // ShipManager scriptRef = finishingShip.GetComponent<ShipManager>();
+            // Debug.Log("finishingShip");
+            // Debug.Log(finishingShip);
+            // Vector3Int finishingShipCurrPermPosition = finishingShip.GetComponent<ShipManager>().currPermPosition;
+
+            if (shipDict[finishingShipID].GetComponent<ShipManager>().currPermPosition == finishPoint)
+            {
+                postSolutionButton.SetActive(true);
+            }
+            else
+            {
+                postSolutionButton.SetActive(false);
+
+            }
+
+        }
+
+        // debugging commands here
         if (Input.GetKeyDown(KeyCode.X))
         {
-
-            for (int i = 0; i < 20; i++){
-                string lineString = "";
-                for (int j = 0; j < 20; j++){
-                    lineString += gamestateGrid[i, j].ToString();
-                }
-                Debug.Log(lineString);
-            }
+            // this.postSolutionButton.SetActive(true);
+            // PlayerManager.postSolution(movesList, totalSolutionNumMoves, totalSolutionLength, gamestateGrid);
+            // for (int i = 0; i < 20; i++){
+            //     string lineString = "";
+            //     for (int j = 0; j < 20; j++){
+            //         lineString += gamestateGrid[i, j].ToString();
+            //     }
+            //     Debug.Log(lineString);
+            // }
         }
         if (Input.GetKeyDown(KeyCode.Q))
         {
             resetMostRecentMove();
+
         }
         if (Input.GetKeyDown(KeyCode.Space))
         {
             resetToRoundStart();
         }
+
     }
 
+    // player calls this when it is loaded in to tell the gameManager to get going
+    public void wakeManager(PlayerManager PlayerManager){
+        // set awake = true
+        isAwake = true;
 
+        // save a reference to the play manager
+        this.PlayerManager = PlayerManager;
+
+        // Name all of the ships
+        for (int i = 1; i <= this.numShips; i++){
+
+            // reference the ship
+            GameObject ship_i = GameObject.Find(("Ship" + i.ToString() + "(Clone)"));
+
+            // add the ship to the shipDict
+            this.shipDict.Add(i, ship_i);
+        }
+
+        setupNewGame();
+    }
 
 
     private void setupNewGame()
@@ -184,11 +207,13 @@ public class GameManager : MonoBehaviour
         // reset game grid
         resetGameGrid();
 
-        // tell all the ships to reset themselves
+        // tell all the ships to reset themselves and update the manager's locations for them as well
         foreach (KeyValuePair<int, GameObject> kvp in this.shipDict)
         {
             kvp.Value.GetComponent<ShipManager>().resetShipToRoundStart();
         }
+
+
 
         // reset stats
         totalSolutionNumMoves = 0;
@@ -219,10 +244,10 @@ public class GameManager : MonoBehaviour
 
     public void initializeShips()
     {   
-        GameManager.Instance.Ship1.GetComponent<ShipManager>().initializeShip(gamestateGrid);
-        GameManager.Instance.Ship2.GetComponent<ShipManager>().initializeShip(gamestateGrid);
-        GameManager.Instance.Ship3.GetComponent<ShipManager>().initializeShip(gamestateGrid);
-        GameManager.Instance.Ship4.GetComponent<ShipManager>().initializeShip(gamestateGrid);
+        GameManager.Instance.Ship1.GetComponent<ShipManager>().initializeShip(gamestateGrid, 1);
+        GameManager.Instance.Ship2.GetComponent<ShipManager>().initializeShip(gamestateGrid, 2);
+        GameManager.Instance.Ship3.GetComponent<ShipManager>().initializeShip(gamestateGrid, 3);
+        GameManager.Instance.Ship4.GetComponent<ShipManager>().initializeShip(gamestateGrid, 4);
     }
 
     public void SpawnTest()
@@ -272,20 +297,11 @@ public class GameManager : MonoBehaviour
         // Iterate through ships and add all ships to the grid
         foreach (KeyValuePair<int, GameObject> kvp in this.shipDict){
             Vector3Int point = kvp.Value.GetComponent<ShipManager>().roundStartSquare;
-            // Debug.Log("gamestateGrid");
-            // Debug.Log(gamestateGrid);
-            // Debug.Log("kvp.Value");
-            // Debug.Log(kvp.Value);
-            // Debug.Log("kvp.Value.GetComponent<ShipManager>().shipID");
-            // Debug.Log(kvp.Value.GetComponent<ShipManager>().shipID);
-            // Debug.Log("point.x");
-            // Debug.Log(point.x);
-
             gamestateGrid[point.x + 10, point.y + 10] = kvp.Value.GetComponent<ShipManager>().shipID;
         }
     }
 
-    private Vector3 generateFinishPoint(int finishingShipID){
+    private Vector3Int generateFinishPoint(int finishingShipID){
         while(true){
             int randX = this.randomGenerator.Next(-10,9);
             int randY = this.randomGenerator.Next(-10,9);
@@ -294,7 +310,7 @@ public class GameManager : MonoBehaviour
             // If the random position is a viable square
             // NOTE: currently a viable square is ANYTHING that isn't a wall so it may be under another ship
             if (this.gamestateGrid[randX + 10, randY + 10] != -1){
-                Vector3 finishCandidate = new Vector3(randX, randY, 0);
+                Vector3Int finishCandidate = new Vector3Int(randX, randY, 0);
                 createFinishPointSprite(randX, randY, finishingShipID);
                 return finishCandidate;
             }
@@ -319,10 +335,6 @@ public class GameManager : MonoBehaviour
         // if it is the right ship and has come to a stop at the right location
         if ((shipID == this.finishingShipID) && (this.finishPoint == endSquare)){
 
-
-            // TODO FILL THIS IN
-            // PlayerManager.postSolution();
-
             // activate button
             this.nextRoundButton.SetActive(true);
         }
@@ -333,6 +345,11 @@ public class GameManager : MonoBehaviour
 
         startNewRound();
 
+    }
+
+    public void postSolutionButtonCall()
+    {
+        PlayerManager.postSolution(movesList, totalSolutionNumMoves, totalSolutionLength, gamestateGrid);
     }
 
     private void startNewRound(){
@@ -371,13 +388,13 @@ public class GameManager : MonoBehaviour
     {
 
         // check if there is a move to reset
-        if (listOfMoves.Count > 0)
+        if (movesList.Count > 0)
         {
-            // peel off the move to be reset
-            Tuple<int, Vector3Int, Vector3Int> mostRecentMove = listOfMoves[listOfMoves.Count - 1];
+            // peek at the move to be reset
+            Tuple<int, Vector3Int, Vector3Int> mostRecentMove = movesList[movesList.Count - 1];
 
             // remove it from the list of moves
-            listOfMoves.RemoveAt(listOfMoves.Count - 1);
+            movesList.RemoveAt(movesList.Count - 1);
 
             // move the ship piece back to the previous location
             shipDict[mostRecentMove.Item1].GetComponent<ShipManager>().resetLeg();
@@ -391,17 +408,15 @@ public class GameManager : MonoBehaviour
             updateStatsText();
         }
 
-    
-
-
-
-
     }
+
+
 
     public void addMoveToList(int shipID, Vector3Int startLocation, Vector3Int endLocation)
     {
+
         // add move to the list of all moves
-        this.listOfMoves.Add(new Tuple<int, Vector3Int, Vector3Int>(shipID, startLocation, endLocation));
+        this.movesList.Add(new Tuple<int, Vector3Int, Vector3Int>(shipID, startLocation, endLocation));
 
         // add the new move to the total length of path
         totalSolutionLength += Math.Max(Math.Abs(startLocation.x - endLocation.x),  Math.Abs(startLocation.y - endLocation.y));
@@ -409,8 +424,8 @@ public class GameManager : MonoBehaviour
         // increment total num moves
         totalSolutionNumMoves++;
 
+        // update the user's stats display
         updateStatsText();
-
     }
 
 
@@ -423,13 +438,11 @@ public class GameManager : MonoBehaviour
             TMPro.TextMeshProUGUI textObj = UIElement.GetComponent<TMPro.TextMeshProUGUI>();
             if (UIElement.gameObject.name == "NumMovesText")
             {
-                Debug.Log("updating text to:" + textObj.text.Split(":")[0] + ": " + totalSolutionNumMoves.ToString());
                 textObj.text = textObj.text.Split(":")[0] + ": " + totalSolutionNumMoves.ToString();                 
             }
 
             if (UIElement.gameObject.name == "SolutionLengthText")
             {
-                Debug.Log("updating text to:" + textObj.text.Split(":")[0] + ": " + totalSolutionNumMoves.ToString());
                 textObj.text = textObj.text.Split(":")[0] + ": " + totalSolutionLength.ToString();                 
 
             }
