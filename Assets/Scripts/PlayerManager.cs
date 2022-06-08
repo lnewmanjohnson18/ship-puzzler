@@ -23,7 +23,7 @@ public class PlayerManager : NetworkBehaviour
     private bool inServerCountdown = false;
     private float countdownTime = 30;
     private int lastSentTime;
-
+    
     void Start()
     {   
 
@@ -63,15 +63,58 @@ public class PlayerManager : NetworkBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            Debug.Log(NetworkManagerScript.getClientConnections());
+            // int[,] testGrid = new int[20,20] {
+            //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+            //     {2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+            //     {3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+            //     {4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
+            //     {5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
+            //     {6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6},
+            //     {7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7},
+            //     {8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8},
+            //     {9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9},
+            //     {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10},
+            //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+            //     {2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+            //     {3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+            //     {4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
+            //     {5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
+            //     {6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6},
+            //     {7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7},
+            //     {8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8},
+            //     {9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9},
+            //     {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
+            // };
+
+            // Debug.Log("GamestateGrid Print");
+
+            // GameManager.Instance.printGrid(GameManager.Instance.gamestateGrid);
+
+            // GameManager.Instance.printGrid(testGrid);
+
+            // int[] testGrid_flat = flattenGrid(testGrid); 
+
+            // int[,] testGrid_unflat = unflattenGrid(testGrid_flat);
+
+            // GameManager.Instance.printGrid(testGrid_unflat);
+
+        }
+
         if (isServer)
         {
-            if (Input.GetKeyDown(KeyCode.X))
-            {
-                cleanupRound();
-            }
+            // if (Input.GetKeyDown(KeyCode.X))
+            // {
+            //     cleanupRound();
+            // }
             if (inServerCountdown)
             {
+                // lower the timer by the frame delta
                 countdownTime -= Time.deltaTime;
+
+                // if the countdown is less than .1s send an update to clients to change their text to the next second value
                 if ((countdownTime % 1 < .1) && (Math.Floor(countdownTime) != lastSentTime))
                 {
                     RpcBroadcastCountdownRemaining((int)Math.Floor(countdownTime));
@@ -81,6 +124,7 @@ public class PlayerManager : NetworkBehaviour
                 // if the countdown is over
                 if (countdownTime < 0)
                 {
+                    // clean up the round
                     cleanupRound();
                 }
             }
@@ -123,12 +167,130 @@ public class PlayerManager : NetworkBehaviour
     {
         if (isServer)
         {
+            inServerCountdown = false;
             // after the timer has ticked down ask the clients for any final solutions
             // NOTE: this call initiates a chain of network calls
             //  RpcRequestFinalSolutions() -> CmdSendFinalSolution() -> RpcActivateRoundEndScreen()
             RpcRequestFinalSolutions();
 
         }
+    }
+
+    // this is called if the player is playing solo and doesnt want to wait for the countdown
+    public void finishCountdown()
+    {
+        if (isServer)
+        {
+            countdownTime = 0;
+        }
+        else
+        {
+            Debug.Log("not connected to server. solo play unfortunately still requires a host");
+        }
+    }
+
+
+    // ===============================================================================================================
+    //  NETWORKING METHODS 
+    // =============================================================================================================== 
+
+    // client calls this code to tell the server that it would like to post a solution to the current board
+    [ Command ]
+    public void CmdPostSolution(string deconstructedMovesList, int numMoves, int lenPath, int[] flatGamestateGrid)
+    {
+        //TODO run server side validation check
+
+        // set the posted solution as the current best
+        GameManager.Instance.currWinningGamestate_flat = flatGamestateGrid;
+        GameManager.Instance.currBestScore = numMoves;
+
+        // TODO this could be a clientRpc?
+        foreach (NetworkConnectionToClient conn in NetworkManagerScript.getClientConnections())
+            {
+                RpcNotifySolutionPosted(conn, numMoves, lenPath);
+                
+            }
+
+
+        // Target RPC to finisher's client with "waiting for other players" screen which will counteract the UI affects of RpcNotifySolutionPosted
+        // if argument is true (the client is in solo play) the wait screen will have an end countdown button
+        RpcActivateWaitScreen((NetworkManagerScript.getClientConnections().Count == 1) ? true : false);
+
+        inServerCountdown = true;
+    }
+
+    // server calls this code to tell all the clients that someone has posted a solution to the current board
+    [ TargetRpc ]
+    public void RpcNotifySolutionPosted(NetworkConnection conn, int numMoves, int lenPath)
+    {
+        Debug.Log("Another client has posted a solution!");
+        GameManager.Instance.activateCountdown(numMoves, lenPath);
+
+    }
+
+    [ TargetRpc ]
+    public void RpcActivateWaitScreen(bool isSolo)
+    {
+        GameManager.Instance.activateWaitScreen(isSolo);
+    }
+
+
+    // broadcasts the timeremaining to all clients who are in countdown
+    // sends as an int and only sends at second intervals
+    [ ClientRpc]
+    public void RpcBroadcastCountdownRemaining(int timeRemaining)
+    {
+        GameManager.Instance.updateTimerText(timeRemaining);
+    }
+
+    // server calls this to ask if clients have any final solutions before closing the round
+    [ ClientRpc ]
+    public void RpcRequestFinalSolutions()
+    {
+        Debug.Log("sending final solution");
+        CmdSendFinalSolution(deconstructMovesList(currSolution.Item1), currSolution.Item2, currSolution.Item3, flattenGrid(currSolution.Item4));
+    }
+
+    [ Command ]
+    public void CmdSendFinalSolution(string deconstructedMovesList, int numMoves, int lenPath, int[] flatGamestateGrid)
+    {
+        // TODO run server side validation check
+
+        // if the score being reported is lower then set as current best
+        // TODO have some way to break a tie here. First? Should alert the players.
+        if (numMoves < GameManager.Instance.currBestScore)
+        {
+            GameManager.Instance.currWinningGamestate_flat = flatGamestateGrid;
+            GameManager.Instance.currBestScore = numMoves;
+        }
+        RpcActivateRoundEndScreen(numMoves, lenPath, netId, isServer);
+
+    }
+
+    [ ClientRpc ]
+    public void RpcActivateRoundEndScreen(int numMoves, int lenPath, uint netId, bool isServer)
+    {
+        GameManager.Instance.activateRoundEndScreen(numMoves, lenPath , netId, isServer);
+    }
+
+    [ Command ]
+    public void CmdRequestNewRound()
+    {
+        Debug.Log("fielding a request for a new round");
+
+        // generate objective for the next round
+        int finishingShipID = GameManager.Instance.randomGenerator.Next(1, GameManager.Instance.numShips);
+        Vector3Int finishPoint = GameManager.Instance.generateFinishPoint(finishingShipID);
+
+        // tell clients to start a new round with the winning gamestate from the previous round and a new objective
+        RpcStartNewRound(GameManager.Instance.currWinningGamestate_flat, finishingShipID, finishPoint);
+
+    }
+
+    [ ClientRpc ]
+    public void RpcStartNewRound(int[] roundStartGamestate_flat, int finishingShipID, Vector3Int finishPoint)
+    {
+        GameManager.Instance.startNextRound(unflattenGrid(roundStartGamestate_flat), finishingShipID, finishPoint);
     }
 
     // ===============================================================================================================
@@ -162,8 +324,7 @@ public class PlayerManager : NetworkBehaviour
         {
             for (int j = 0; j < grid.GetLength(0); j++)
             {
-                // Debug.Log("running flatten with i: " + i + "j: " + j);
-                resGrid[(i*10 + j)] = grid[j, i];
+                resGrid[(i*grid.GetLength(0) + j)] = grid[j, i];
             }
 
         }
@@ -171,86 +332,19 @@ public class PlayerManager : NetworkBehaviour
         return resGrid;
     }
 
-    // ===============================================================================================================
-    //  NETWORKING METHODS 
-    // =============================================================================================================== 
-
-    // client calls this code to tell the server that it would like to post a solution to the current board
-    [ Command ]
-    public void CmdPostSolution(string deconstructedMovesList, int numMoves, int lenPath, int[] flatGamestateGrid)
+    // TODO MAKE THIS BE ABLE TO DO OTHER THAN 20 x 20 ALSO NOT JUST SQUARES
+    // takes in a 1d array (likely from the network) and unflattens it into a 20 x 20 2d array 
+    private int[,] unflattenGrid(int[] grid)
     {
-        //TODO run server side validation check
-
-        // TODO this could be a clientRpc?
-        foreach (NetworkConnectionToClient conn in NetworkManagerScript.getClientConnections())
-            {
-                RpcNotifySolutionPosted(conn, numMoves, lenPath);
-                
+        int[,] resGrid = new int[20, 20];
+        for (int i = 0; i < 20; i++)
+        {
+            for (int j = 0; j < 20; j++)
+            {   
+                resGrid[j, i] = grid[i*20 + j];
             }
-
-        // TODO save gamestate to server
-
-        // RPC to finisher's client with "waiting for other players" screen which will counteract the affects of RpcNotifySolutionPosted
-        RpcActivateWaitScreen();
-
-        inServerCountdown = true;
+        }
+    
+        return resGrid;
     }
-
-    // server calls this code to tell all the clients that someone has posted a solution to the current board
-    [ TargetRpc ]
-    public void RpcNotifySolutionPosted(NetworkConnection conn, int numMoves, int lenPath)
-    {
-        Debug.Log("Another client has posted a solution!");
-        GameManager.Instance.activateCountdown(numMoves, lenPath);
-
-    }
-
-    [ TargetRpc ]
-    public void RpcActivateWaitScreen()
-    {
-        GameManager.Instance.activateWaitScreen();
-    }
-
-
-    // broadcasts the timeremaining to all clients who are in countdown
-    // sends as an int and only sends at second intervals
-    [ ClientRpc]
-    public void RpcBroadcastCountdownRemaining(int timeRemaining)
-    {
-        GameManager.Instance.updateTimerText(timeRemaining);
-    }
-
-    // server calls this to ask if clients have any final solutions before closing the round
-    [ ClientRpc ]
-    public void RpcRequestFinalSolutions()
-    {
-        CmdSendFinalSolution(deconstructMovesList(currSolution.Item1), currSolution.Item2, currSolution.Item3, flattenGrid(currSolution.Item4));
-    }
-
-    [ Command ]
-    public void CmdSendFinalSolution(string deconstructedMovesList, int numMoves, int lenPath, int[] flatGamestateGrid)
-    {
-        // TODO run server side validation check
-
-        RpcActivateRoundEndScreen(numMoves, lenPath, netId);
-
-        // DEP
-        // Tuple<int[], int[]> scoreLists = GameManager.Instance.collectFinalScores(numMoves, lenPath, netId);
-        // Debug.Log()
-        // RpcActivateRoundEndScreen(numMoves, lenPath, netId);
-
-    }
-
-    [ ClientRpc ]
-    public void RpcActivateRoundEndScreen(int numMoves, int lenPath, uint netId)
-    {
-        GameManager.Instance.activateRoundEndScreen(numMoves, lenPath ,netId);
-    }
-
-    // [ ClientRpc ]
-    // public void RpcActivateRoundEndScreen(int[] finalNumMovesScores, int[] finalLengthScores, uint netId)
-    // {
-    //     GameManager.Instance.activateRoundEndScreen(finalNumMovesScores, finalLengthScores, uint netId);
-    // }
-
 }

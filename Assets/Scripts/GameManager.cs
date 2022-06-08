@@ -10,6 +10,8 @@ public class GameManager : MonoBehaviour
 {
     // track whether or not the whole game has been loaded in and whether or not we should run things in update{}
     public bool isAwake = false;
+    // state to determine if the board objects and UI buttons should be interactable
+    public bool isWaiting = false;
 
     public int[,] gamestateGrid = new int[20, 20];
     // private int[,] roundStartGamestateGrid = new int[20, 20] {
@@ -41,16 +43,13 @@ public class GameManager : MonoBehaviour
     public Sprite finishPointTexture3;
     public Sprite finishPointTexture4;
     private Sprite[] finishPointTextureList = new Sprite[4];
-    private System.Random randomGenerator = new System.Random();
+    public System.Random randomGenerator = new System.Random();
     private Vector3Int finishPoint;
     private int finishingShipID;
-    private bool inCountdown = false;
     private Dictionary<uint, Tuple<int, int>> roundEndResultsDict = new Dictionary<uint, Tuple<int, int>>();
-    private List<int> currNumMovesResults = new List<int>();
-    private List<int> currLengthResults = new List<int>();
 
-    private int totalSolutionLength;
     private int totalSolutionNumMoves;
+    private int totalSolutionLength;
     // private Tuple<List<int, Vector3Int, Vector3Int>, int, int, int[,]> currentSolution;
 
     public GameObject Ship1Prefab;
@@ -65,7 +64,6 @@ public class GameManager : MonoBehaviour
     private GameObject GridObject;
     private Tilemap Walls;
     private GameObject UI;
-    private GameObject nextRoundButton;
     private GameObject postSolutionButton;
     private PlayerManager PlayerManager;
 
@@ -74,7 +72,7 @@ public class GameManager : MonoBehaviour
     // private int[,] gameStateGrid = new int[20, 20];
 
     // COMMUNICATE THE NUMBER OF SHIPS TO THE SCRIPTS HERE
-    private int numShips = 4;
+    public int numShips = 4;
     public int selectedShipID = 1;
     private Dictionary<int, GameObject> shipDict = new Dictionary<int, GameObject>();
 
@@ -86,8 +84,8 @@ public class GameManager : MonoBehaviour
     // TODO: FIX- this puts a cap of 10 players on the game 
     private int[] finalNumMovesScores = new int[10];
     private int[] finalLengthScores = new int[10];
-
-    // List<string> dinosaurs = new List<string>();
+    public int currBestScore = (int)10e4;
+    public int[] currWinningGamestate_flat;
 
     // === DECLARE AS SINGLETON ===
     private static GameManager _instance;
@@ -115,8 +113,6 @@ public class GameManager : MonoBehaviour
         this.GridObject = GameObject.Find("Grid");
         this.Walls = GameObject.Find("Walls").GetComponent<Tilemap>();
         this.UI = GameObject.Find("PersistentUI");
-        this.nextRoundButton = GameObject.Find("NextRoundButton");
-        this.nextRoundButton.SetActive(false);
         this.postSolutionButton = GameObject.Find("PostSolutionButton");
         this.postSolutionButton.SetActive(false);
 
@@ -134,11 +130,6 @@ public class GameManager : MonoBehaviour
     {      
         if (isAwake)
         {
-            // if the player is in the countdown phase
-            // if (inCountdown)
-            // {
-
-            // }
 
             if (shipDict[finishingShipID].GetComponent<ShipManager>().currPermPosition == finishPoint)
             {
@@ -155,8 +146,9 @@ public class GameManager : MonoBehaviour
         // debugging commands here
         if (Input.GetKeyDown(KeyCode.X))
         {
+            // disableBoard(!isWaiting);
             // int[,] fakeGrid = new int[20,20];
-            PlayerManager.postSolution(new List<Tuple<int, Vector3Int, Vector3Int>>(), 10, 300, new int[20,20]);
+            // PlayerManager.postSolution(new List<Tuple<int, Vector3Int, Vector3Int>>(), 10, 300, new int[20,20]);
             // this.activateCountdown(10, 100);
             // this.postSolutionButton.SetActive(true);
             // PlayerManager.postSolution(movesList, totalSolutionNumMoves, totalSolutionLength, gamestateGrid);
@@ -220,13 +212,11 @@ public class GameManager : MonoBehaviour
         // reset game grid
         resetGameGrid();
 
-        // tell all the ships to reset themselves and update the manager's locations for them as well
+        // tell all the ships to reset themselves
         foreach (KeyValuePair<int, GameObject> kvp in this.shipDict)
         {
             kvp.Value.GetComponent<ShipManager>().resetShipToRoundStart();
         }
-
-
 
         // reset stats
         totalSolutionNumMoves = 0;
@@ -257,10 +247,10 @@ public class GameManager : MonoBehaviour
 
     public void initializeShips()
     {   
-        GameManager.Instance.Ship1.GetComponent<ShipManager>().initializeShip(gamestateGrid, 1);
-        GameManager.Instance.Ship2.GetComponent<ShipManager>().initializeShip(gamestateGrid, 2);
-        GameManager.Instance.Ship3.GetComponent<ShipManager>().initializeShip(gamestateGrid, 3);
-        GameManager.Instance.Ship4.GetComponent<ShipManager>().initializeShip(gamestateGrid, 4);
+        GameManager.Instance.Ship1.GetComponent<ShipManager>().initializeShip(1);
+        GameManager.Instance.Ship2.GetComponent<ShipManager>().initializeShip(2);
+        GameManager.Instance.Ship3.GetComponent<ShipManager>().initializeShip(3);
+        GameManager.Instance.Ship4.GetComponent<ShipManager>().initializeShip(4);
     }
 
     public void SpawnTest()
@@ -314,7 +304,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private Vector3Int generateFinishPoint(int finishingShipID){
+    public Vector3Int generateFinishPoint(int finishingShipID){
         while(true){
             int randX = this.randomGenerator.Next(-10,9);
             int randY = this.randomGenerator.Next(-10,9);
@@ -334,7 +324,7 @@ public class GameManager : MonoBehaviour
 
         // Create a new sprite that will represent the path
         this.finishPointSprite = new GameObject();
-        finishPointSprite.name = "Finish Point Sprite";
+        finishPointSprite.name = "FinishPointSprite";
         SpriteRenderer newSpriteRenderer = finishPointSprite.AddComponent<SpriteRenderer>();
         newSpriteRenderer.sprite = this.finishPointTextureList[(finishingShipID - 1)];
         // NOTE: MINUS 1 is because ship 1 is @ index 0 etc. etc.
@@ -344,57 +334,113 @@ public class GameManager : MonoBehaviour
 
     }
 
-    public void checkSolution(int shipID, Vector3 endSquare){
-        // if it is the right ship and has come to a stop at the right location
-        if ((shipID == this.finishingShipID) && (this.finishPoint == endSquare)){
-
-            // activate button
-            this.nextRoundButton.SetActive(true);
-        }
-    }
-
-    public void nextRoundButtonCall(){
-        this.nextRoundButton.SetActive(false);
-
-        startNewRound();
-
-    }
-
     public void postSolutionButtonCall()
     {
-        PlayerManager.postSolution(movesList, totalSolutionNumMoves, totalSolutionLength, gamestateGrid);
-    }
-
-    private void startNewRound(){
-        // lock board and prompt user for next puzzle
-        // TODO
-        
-        // reset board
-        resetGameState();
-
-        // reset all the ships paths
-        foreach (KeyValuePair<int, GameObject> kvp in this.shipDict){
-            kvp.Value.GetComponent<ShipManager>().setRoundStartPosition();
+        if (!isWaiting)
+        {
+            PlayerManager.postSolution(movesList, totalSolutionNumMoves, totalSolutionLength, gamestateGrid);
         }
-        // maybe move the ships to new random locations?
     }
 
+    public void soloPlayNextRoundButton()
+    {
+        PlayerManager.finishCountdown();
+    }
 
+    public void startNextRound(int[,] roundStartGamestate, int newFinishingShipID, Vector3Int newFinishPoint)
+    {
+        // update gamestate
+        gamestateGrid = roundStartGamestate;
+
+        // tell the ships where their new round start square is
+        for (int i = roundStartGamestate.GetLowerBound(0); i < roundStartGamestate.GetUpperBound(0); i++)
+        {
+            for (int j = roundStartGamestate.GetLowerBound(1); j < roundStartGamestate.GetUpperBound(1); j++)
+            {
+                if (shipDict.ContainsKey(roundStartGamestate[i, j]))
+                {
+                    shipDict[roundStartGamestate[i, j]].GetComponent<ShipManager>().roundStartSquare = new Vector3Int(i - 10, j - 10, 0);
+                }
+            }
+
+        }
+
+        // reset all variables that around round specific (also resets state variables)
+        resetRoundVariables();
+
+        // destroy the old objective
+        Destroy(GameObject.Find("FinishPointSprite"));
+
+        // save the new objective
+        this.finishingShipID = newFinishingShipID;
+        this.finishPoint = newFinishPoint;
+
+
+
+        // disable end of round screen UI
+        this.transform.GetChild(2).gameObject.SetActive(false);
+
+        // enable the board
+        disableBoard(false);
+
+    }
+
+    private void resetRoundVariables()
+    {
+        // reset all the temporary round variables on game manager
+        isWaiting = false;
+        isAwake = true;
+        roundEndResultsDict.Clear();
+        totalSolutionNumMoves = 0;
+        totalSolutionLength = 0;
+        movesList.Clear();
+        currBestScore = (int)10e4;
+
+        // reset the text variables stored on the UI objects 
+        this.transform.GetChild(2).transform.GetChild(1).GetComponent<TMPro.TextMeshProUGUI>().text = "";
+        this.transform.GetChild(2).transform.GetChild(2).GetComponent<TMPro.TextMeshProUGUI>().text = "";
+        this.transform.GetChild(2).transform.GetChild(3).GetComponent<TMPro.TextMeshProUGUI>().text = "";
+
+        // reset all the temporary round variables on all ships and delete path sprites
+        foreach (KeyValuePair<int, GameObject> kvp in shipDict)
+        {
+            kvp.Value.GetComponent<ShipManager>().resetRoundVariables();
+        }
+
+    }
+
+    //DEP??
+    // private void startNewRound(){
+    //     // lock board and prompt user for next puzzle
+    //     // TODO
+        
+    //     // reset board
+    //     resetGameState();
+
+    //     // reset all the ships paths
+    //     foreach (KeyValuePair<int, GameObject> kvp in this.shipDict){
+    //         kvp.Value.GetComponent<ShipManager>().setRoundStartPosition();
+    //     }
+    //     // maybe move the ships to new random locations?
+    // }
+
+
+    // DEP??
     // TODO: RENAME THIS TO LIKE "startNewRound" CAUSE THATS WHAT IT DOES RIGHT?
     // DO THIS AND THE ABOVE FUNCTION COVER DIFFERENT USE CASES?
-    private void resetGameState(){
+    // private void resetGameState(){
 
-        // Remove old finish point
-        // TODO: FIX THIS
-        Destroy(this.finishPointSprite);
+    //     // Remove old finish point
+    //     // TODO: FIX THIS
+    //     Destroy(this.finishPointSprite);
 
-        // Pick a new ship and finish spot
-        this.finishingShipID = this.randomGenerator.Next(1,numShips);
-        this.finishPoint = generateFinishPoint(this.finishingShipID);
+    //     // Pick a new ship and finish spot
+    //     this.finishingShipID = this.randomGenerator.Next(1,numShips);
+    //     this.finishPoint = generateFinishPoint(this.finishingShipID);
 
-        // Reset the game grid
-        resetGameGrid();
-    }
+    //     // Reset the game grid
+    //     resetGameGrid();
+    // }
 
     // resets the most recent move the player has input
     private void resetMostRecentMove()
@@ -426,39 +472,46 @@ public class GameManager : MonoBehaviour
     // called when the server alerts that a solution has been posted and indicates to the player the countdown has started
     public void activateCountdown(int numMoves, int lenSolution)
     {
+        // activates the UI elements for the countdown and updates their text
         this.transform.GetChild(1).gameObject.SetActive(true);
         this.transform.GetChild(1).transform.GetChild(1).GetComponent<TMPro.TextMeshProUGUI>().text = "NumMoves: " + numMoves;
         this.transform.GetChild(1).transform.GetChild(2).GetComponent<TMPro.TextMeshProUGUI>().text = "Length: " + lenSolution;
 
-        // this will cause text on the newly activated canvas to be updated every frame in Update{}
-        inCountdown = true;
     }
 
-    public void activateWaitScreen()
+    public void activateWaitScreen(bool isSolo)
     {
-        // shut off the countdown
-        inCountdown = false;
+        // disable the board
+        disableBoard(true);
+
+        // disable the countdown UI elements? not sure.
+        // this.transform.GetChild(1).gameObject.SetActive(true);
 
         // activate the wait screen
         this.transform.GetChild(0).gameObject.SetActive(true);
 
+        // if (!isSolo){this.transform.GetChild(0).transform.GetChild(1).gameObject.SetActive(false);}
+
+
+
     }
 
-    public void activateRoundEndScreen(int numMoves, int lenPath, uint netId)
+    public void activateRoundEndScreen(int numMoves, int lenPath, uint netId, bool isServer)
     {
-        Debug.Log("in activateRoundEndScreen");
-        Debug.Log("netId");
-        Debug.Log(netId);
-        Debug.Log("numMoves");
-        Debug.Log(numMoves);
-        Debug.Log("lenPath");
-        Debug.Log(lenPath);
         // disable the wait screen or the countdown UI if either are active
         this.transform.GetChild(0).gameObject.SetActive(false);
         this.transform.GetChild(1).gameObject.SetActive(false);
         //activate the roundEndScreen
         this.transform.GetChild(2).gameObject.SetActive(true);
 
+        // disable game pieces between rounds
+        disableBoard(true);
+
+        // disable the new round button if client
+        if (isServer){this.transform.GetChild(2).transform.GetChild(7).gameObject.SetActive(false);}
+        // disable the "waiting for host" text if host
+        else {this.transform.GetChild(2).transform.GetChild(6).gameObject.SetActive(false);}
+        
 
         // safety check that this is the first post for this netId
         if (!roundEndResultsDict.ContainsKey(netId))
@@ -466,7 +519,6 @@ public class GameManager : MonoBehaviour
             Debug.Log("adding score to text");
             // add the score to the resultsDict
             roundEndResultsDict.Add(netId, new Tuple<int, int>(numMoves, lenPath));
-            //update player column, then NumMoves column, then Length column
             this.transform.GetChild(2).transform.GetChild(1).GetComponent<TMPro.TextMeshProUGUI>().text += "" + netId + "\n";
             this.transform.GetChild(2).transform.GetChild(2).GetComponent<TMPro.TextMeshProUGUI>().text += "" + numMoves + "\n";
             this.transform.GetChild(2).transform.GetChild(3).GetComponent<TMPro.TextMeshProUGUI>().text += "" + lenPath + "\n";
@@ -474,75 +526,15 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            Debug.Log("++WARNING++: results were posted twice for netId" + netId);
+            Debug.Log("++WARNING++: duplicate results were posted for netId" + netId);
         }
 
     }
 
-    //DEP
-    // public void activateRoundEndScreen(int[] finalNumMovesScores, int[] finalLengthScores)
-    // {
-    //     // disable the wait screen or the countdown UI if either are active
-    //     this.transform.GetChild(0).gameObject.SetActive(false);
-    //     this.transform.GetChild(1).gameObject.SetActive(false);
-    //     this.transform.GetChild(2).gameObject.SetActive(true);
-
-    //     // update state
-    //     inCountdown = false;
-
-    //     // will be filled in and used to set endscreen text
-    //     string updatePlayersString = "";
-    //     string updateNumMovesString = "";
-    //     string updateLengthString = "";
-
-    //     //print any new information to the text
-    //     for (int i = 0; i < finalNumMovesScores.Length; i++)
-    //     {
-
-    //         // if there is a new NumMoves score posted for player_i
-    //         if (currNumMovesResults[i] == 0)
-    //         // if (currNumMovesResults.ElementAtOrDefault(i) != null)
-    //         {
-    //             currNumMovesResults.Insert(i, finalNumMovesScores[i]);
-    //             // updatePlayersString += "" + i + "\n";
-    //         }
-
-    //         // if there is a NumMoves score for player_i from this or any previous call of activateRoundEndScreen add to text
-    //         if (currNumMovesResults[i] != 0)
-    //         {
-    //             updatePlayersString += "" + i + "\n";
-    //             updateNumMovesString += "" + currNumMovesResults[i] + "\n";
-    //         }
-
-    //         // if there is a new Length score posted for player_i
-    //         if (currLengthResults[i] == 0)
-    //         {
-    //             currLengthResults.Insert(i, finalLengthScores[i]);
-    //         }
-
-    //         // if there is a length score for player_i from this or any previous call of activateRoundEndScreen add to text
-    //         if (currLengthResults[i] != 0)
-    //         {
-    //             updateLengthString += "" + currLengthResults[i] + "\n";
-    //         }
-    //     }
-
-    //     //update player column, then NumMoves column, then Length column
-    //     this.transform.GetChild(1).transform.GetChild(0).GetComponent<TMPro.TextMeshProUGUI>().text = updatePlayersString;
-    //     this.transform.GetChild(1).transform.GetChild(1).GetComponent<TMPro.TextMeshProUGUI>().text = updateNumMovesString;
-    //     this.transform.GetChild(1).transform.GetChild(2).GetComponent<TMPro.TextMeshProUGUI>().text = updateLengthString;
-
-    // }
-
-    //DEP
-    public Tuple<int[], int[]> collectFinalScores(int numMoves, int lenPath, uint senderNetId)
+    // asks the server to initiate new round
+    public void requestNewRound()
     {
-        // finalNumMovesScores
-        finalNumMovesScores[senderNetId] = numMoves;
-        finalLengthScores[senderNetId] = lenPath;
-            
-        return new Tuple<int[], int[]>(finalNumMovesScores, finalLengthScores);
-
+        PlayerManager.CmdRequestNewRound();
     }
 
     // function to be called every frame when the countdown timer is running
@@ -589,6 +581,35 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // turns off the ships and disables and buttons for when the game is in a wait state
+    // NOTE: DISABLES so they are still visible just non-interactable
+    public void disableBoard(bool disable)
+    {
+        // update state
+        isWaiting = disable ? true : false;
+
+        // disable / enable ships 
+        foreach (KeyValuePair<int, GameObject> kvp in shipDict)
+        {
+            kvp.Value.GetComponent<ShipManager>().enabled = disable ? false : true;
+        }
+    }
+
+    public void printGrid(int[,] grid)
+    {
+        Debug.Log("=====PRINTING GRID=====");
+        for (int i = 0; i < grid.GetLength(0); i++)
+        {
+            string lineString = "";
+            // prints this way so the grid "reads right"
+            for (int j = (grid.GetLength(1) - 1); j > -1 ; j--)
+            {
+                lineString += grid[j, i].ToString() + " ";
+            }
+            Debug.Log(lineString);
+        }
+    }
+
     // ===============================================================================================================
     // SERVER METHODS
     // ===============================================================================================================
@@ -608,7 +629,6 @@ public class GridSquare
     public int y;
     public bool isOccupied = false;
 
-    // TODO make so we only use either the Vector3 or x,y. (preferably the Vector3)
     public GridSquare(Vector3 location, int x, int y, bool isOccupied){
         this.location = new Vector3(x, y, 0);
         this.x = x;
