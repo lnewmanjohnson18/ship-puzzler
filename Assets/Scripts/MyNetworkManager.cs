@@ -30,6 +30,30 @@ public class MyNetworkManager : NetworkManager
     {
         Debug.Log("Connected to Server");
         SceneManager.LoadScene("GameBoard");
+
+        if (SceneManager.GetActiveScene().buildIndex != 2)
+        {
+            // starts a side routine that will wait for the board to load then spawn the player
+            StartCoroutine("waitForBoardLoad", 2);
+        }
+    }
+
+    IEnumerator waitForBoardLoad(int sceneNumber)
+    {
+        while (SceneManager.GetActiveScene().buildIndex != sceneNumber)
+        {
+            yield return null;
+        }
+
+        if (SceneManager.GetActiveScene().buildIndex == sceneNumber)
+        {
+            NetworkClient.Ready();
+            if (NetworkClient.localPlayer == null)
+            {
+                NetworkClient.AddPlayer();
+            }
+        }
+
     }
 
     public override void OnClientDisconnect()
