@@ -259,22 +259,6 @@ public class GameManager : MonoBehaviour
 
     }
 
-    // marks globally which ship is currently highlighted
-    public void markSelected(int shipID){
-
-        // mark a note on the manager who is currently selected
-        selectedShipID = shipID;
-
-        // tell all other ships they are no longer selected
-        foreach (KeyValuePair<int, GameObject> kvp in this.shipDict){
-            if (kvp.Key != shipID){
-                kvp.Value.GetComponent<ShipManager>().deselect();
-            }
-        }
-
-        // this.shipDict[shipID].GetComponent<velocity_dragging>().
-    }
-
 
     // resets the game grid to the way it was at the start of the round
     private void resetGameGrid(){
@@ -375,7 +359,7 @@ public class GameManager : MonoBehaviour
         this.finishingShipID = newFinishingShipID;
         this.finishPoint = newFinishPoint;
 
-
+        // update the stats text
 
         // disable end of round screen UI
         this.transform.GetChild(2).gameObject.SetActive(false);
@@ -393,6 +377,7 @@ public class GameManager : MonoBehaviour
         roundEndResultsDict.Clear();
         totalSolutionNumMoves = 0;
         totalSolutionLength = 0;
+        updateStatsText();
         movesList.Clear();
         currBestScore = (int)10e4;
 

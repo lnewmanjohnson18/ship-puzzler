@@ -20,7 +20,6 @@ public class ShipManager : MonoBehaviour
     public Rigidbody2D rb;
     public Vector3Int roundStartSquare;
     private bool isBeingHeld = false;
-    private bool isSelected = false;
     public Vector3Int[] path = new Vector3Int[484];
     public Vector3Int[] permPath = new Vector3Int[484];
     private GameObject[] pathSpriteList = new GameObject[484];
@@ -488,19 +487,6 @@ public class ShipManager : MonoBehaviour
 
     }
 
-    private void markSelected(){
-        //
-        this.isSelected = true;
-
-        GameManager.Instance.markSelected(this.shipID);
-        // report to the gameManager that this ship has been selected
-
-    }
-
-    public void deselect(){
-        this.isSelected = false;
-    }
-
     private void OnMouseDown(){
 
         if (Input.GetMouseButtonDown(0))
@@ -511,9 +497,6 @@ public class ShipManager : MonoBehaviour
                 // tells the physics engine to just freeze rotation; let X and Y now change
                 rb.constraints = RigidbodyConstraints2D.FreezeRotation;
                 isBeingHeld = true;
-
-                markSelected();
-
         }
         
     } 
@@ -573,7 +556,6 @@ public class ShipManager : MonoBehaviour
 
         // update states;
         isBeingHeld = false;
-        isSelected = false;
     }
 
 }

@@ -1,12 +1,18 @@
 MAKE CUSTOM WALL SPRITE
 	should walls be "thin" (i.e. not taking up a square) or “thick”
-ADD A LOBBY BEFORE GAME LAUNCH
 HANDLE SERVER DISCONNECT
 MAKE BETTER PATH SRPITE
 DURING COUNTDOWN ALERT PLAYERS IF ANOTHER PLAYER POSTS A BETTER SCORE
 GET SOLO BUTTON TO WORK 100% OF THE TIME
+	or get singleplayer actually working
 ARROW KEY MOVEMENT?
 WAITSCREEN NOT WORKING WHEN SOLO BUTTON IS USED
+ADD A LOBBY BEFORE GAME LAUNCH
+ADD A POP UP MENU
+	with quit game, disconnect from host, settings, etc.
+GET UI TO SCALE 
+
+
 
 ================================== COMPLETED ================================== 
 MAKE A CUSTOM NETWORK HUD
