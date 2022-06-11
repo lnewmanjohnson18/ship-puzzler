@@ -2760,10 +2760,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   isAwake: 0
   isWaiting: 0
-  finishPointTexture1: {fileID: 21300000, guid: d236f9869e44f374995ffc945e3027d8, type: 3}
-  finishPointTexture2: {fileID: 21300000, guid: a454533a9b5f6a441ba163739f27f537, type: 3}
-  finishPointTexture3: {fileID: 21300000, guid: 0c12b4686286bc34989f789b606d59b2, type: 3}
-  finishPointTexture4: {fileID: 21300000, guid: ba0d8417fad4f2d40be9e11d13014b6f, type: 3}
+  finishPointTexture1: {fileID: 21300000, guid: 9fc11d74643b1b94c9f919d536fcbe15, type: 3}
+  finishPointTexture2: {fileID: 21300000, guid: 6905b615a7effe8489873c475a577544, type: 3}
+  finishPointTexture3: {fileID: 21300000, guid: c604b022931d9b645950e63678b4e859, type: 3}
+  finishPointTexture4: {fileID: 21300000, guid: 7450b18ce4ded9c42935df98bdaecc00, type: 3}
   Ship1Prefab: {fileID: 7853489062960452372, guid: 9063b275db5508f4a8b051cbfaac938f, type: 3}
   Ship2Prefab: {fileID: 7810690718611352382, guid: ac7caab727535214ba15febd33687099, type: 3}
   Ship3Prefab: {fileID: 453553397455521031, guid: d7ac0b7b38df6c743b1174eb524406dd, type: 3}
